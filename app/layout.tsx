@@ -1,43 +1,50 @@
-import type { Metadata, Viewport } from 'next'
+import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { Providers } from '@/components/providers'
 import './globals.css'
-import PWAInitializer from '@/components/pwa-initializer'
 
-const _geist = Geist({ subsets: ["latin"], variable: '--font-geist-sans' });
-const _geistMono = Geist_Mono({ subsets: ["latin"], variable: '--font-geist-mono' });
+const _geist = Geist({ subsets: ["latin"] });
+const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Yarn Factory - Inventory Management',
-  description: 'Complete inventory management system for yarn factories',
-  generator: 'v0.app',
+  title: 'Radhe ERP - Yarn Factory Management',
+  description: 'Premium yarn factory management system for production tracking and inventory control',
+  generator: 'Radhe Software Solutions',
   manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Fair Method',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: 'cover',
+  },
   icons: {
     icon: [
       {
-        url: '/icon-light-32x32.png',
+        url: '/logo.png',
         media: '(prefers-color-scheme: light)',
       },
       {
-        url: '/icon-dark-32x32.png',
+        url: '/logo.png',
         media: '(prefers-color-scheme: dark)',
       },
       {
-        url: '/icon.svg',
+        url: '/logo.png',
         type: 'image/svg+xml',
       },
     ],
-    apple: '/apple-icon.png',
+    apple: '/logo.png',
   },
-}
-
-export const viewport: Viewport = {
-  themeColor: '#0f1117',
-  userScalable: false,
-  initialScale: 1,
-  maximumScale: 1,
-  width: 'device-width',
-  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#1a1a1a' },
+  ],
 }
 
 export default function RootLayout({
@@ -46,11 +53,28 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${_geist.variable} ${_geistMono.variable} font-sans antialiased`}>
-        {children}
-        <PWAInitializer />
-        <Analytics />
+    <html lang="en">
+      <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Fair Method" />
+        <meta name="msapplication-TileColor" content="#7c4eff" />
+      </head>
+      <body className="font-sans antialiased">
+        <Providers>
+          {children}
+          <Analytics />
+        </Providers>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch(() => {})
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   )

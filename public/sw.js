@@ -1,28 +1,21 @@
-// Service Worker for offline support and caching
-
-const CACHE_NAME = "yarn-factory-v1"
-const ASSETS_TO_CACHE = [
-  "/",
-  "/login",
-  "/admin",
-  "/manifest.json",
+const CACHE_NAME = 'fair-method-v1'
+const URLS_TO_CACHE = [
+  '/',
+  '/dashboard',
+  '/offline.html',
 ]
 
-// Install event - cache assets
-self.addEventListener("install", (event) => {
+// Install event - cache resources
+self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE).catch(() => {
-        // Ignore errors for assets that don't exist yet
-        return Promise.resolve()
-      })
+      return cache.addAll(URLS_TO_CACHE)
     })
   )
-  self.skipWaiting()
 })
 
-// Activate event - clean old caches
-self.addEventListener("activate", (event) => {
+// Activate event - clean up old caches
+self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -34,39 +27,32 @@ self.addEventListener("activate", (event) => {
       )
     })
   )
-  self.clients.claim()
 })
 
-// Fetch event - serve from cache, fallback to network
-self.addEventListener("fetch", (event) => {
-  const { request } = event
-  const url = new URL(request.url)
-
-  // Don't cache API requests
-  if (url.pathname.startsWith("/api/")) {
-    event.respondWith(
-      fetch(request).catch(() => {
-        return new Response(
-          JSON.stringify({ error: "Offline" }),
-          { status: 503, headers: { "Content-Type": "application/json" } }
-        )
-      })
-    )
+// Fetch event - network first with cache fallback
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') {
     return
   }
 
-  // Cache-first strategy for other requests
   event.respondWith(
-    caches.match(request).then((response) => {
-      return (
-        response ||
-        fetch(request).then((fetchResponse) => {
-          return caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, fetchResponse.clone())
-            return fetchResponse
-          })
+    fetch(event.request)
+      .then((response) => {
+        if (!response || response.status !== 200 || response.type === 'error') {
+          return response
+        }
+
+        const responseToCache = response.clone()
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseToCache)
         })
-      )
-    })
+
+        return response
+      })
+      .catch(() => {
+        return caches.match(event.request).then((response) => {
+          return response || new Response('Offline - Resource not available', { status: 503 })
+        })
+      })
   )
 })
