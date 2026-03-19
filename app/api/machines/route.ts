@@ -6,6 +6,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const company_id = searchParams.get('company_id')
+    const machine_type = searchParams.get('machine_type')
 
     if (!company_id) {
       return NextResponse.json(
@@ -14,13 +15,18 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const res = await fetch(
-      `${BASE_URL}/list.php?company_id=${company_id}`,
-      { cache: 'no-store' }
-    )
+    let url = `${BASE_URL}/list.php?company_id=${company_id}`
 
+    // ✅ if machine_type is passed → use filter API
+    if (machine_type) {
+      url = `${BASE_URL}/filter.php?company_id=${company_id}&machine_type=${machine_type}`
+    }
+
+    const res = await fetch(url, { cache: 'no-store' })
     const data = await res.json()
+
     return NextResponse.json(data)
+
   } catch (error) {
     return NextResponse.json(
       { status: false, message: 'Failed to fetch machines' },

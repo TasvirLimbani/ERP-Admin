@@ -35,13 +35,16 @@ export default function DyeingPage() {
     tpm: '',
     total_output_weight: ''
   })
-
-
-
+  type Machine = {
+    id: string
+    machine_number: string
+  }
+  const [machines, setMachines] = useState<Machine[]>([])
 
   useEffect(() => {
     if (user?.company_id) {
       loadEntries()
+      loadMachines()
     }
   }, [user])
 
@@ -98,6 +101,31 @@ export default function DyeingPage() {
     }
   }
 
+  const loadMachines = async () => {
+    if (!user?.company_id) return
+
+    try {
+      const res = await fetch(
+        `/api/machines?company_id=${user.company_id}&machine_type=Dyeing Machine`
+      )
+
+      const json = await res.json()
+
+      if (json.status) {
+        const formatted = json.data.map((item: any) => ({
+          id: String(item.id),
+          machine_number: String(item.machine_number),
+        }))
+
+        setMachines(formatted)
+      } else {
+        toast.error(json.message || "Failed to load machines")
+      }
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
+
   useEffect(() => {
     console.log("Total Entries Updated::::: ", totalEntries) // Debug log to check total entries update
   }, [totalEntries])
@@ -123,7 +151,6 @@ export default function DyeingPage() {
     setIsModalOpen(true)
   }
 
-
   const handleYarn = () => {
     setYarnForm({
       yarn_type: '',
@@ -135,10 +162,12 @@ export default function DyeingPage() {
     setSelectedYarnWeight("") // reset weight when opening modal
     setIsYarnModalOpen(true)
   }
+
   const handleEdit = (entry: DyeingEntry) => {
     setEditingEntry(entry)
     setIsModalOpen(true)
   }
+
   const handleDelete = async (entry: DyeingEntry) => {
     if (!confirm("Are you sure you want to delete this entry?")) return
 
@@ -157,8 +186,6 @@ export default function DyeingPage() {
       toast.error(json.message || "Failed to delete entry")
     }
   }
-
-
 
   const handleSubmit = async (data: Record<string, any>) => {
     try {
@@ -202,6 +229,7 @@ export default function DyeingPage() {
       toast.error(error.message || "Failed to save entry")
     }
   }
+
   const handleYarnChange = (value: string) => {
     setSelectedYarn(value)
     setYarnForm((prev) => ({
@@ -235,7 +263,14 @@ export default function DyeingPage() {
   }
   const columns = [
     { key: 'created_at', label: 'Date' },
-    { key: 'machine_id', label: 'Machine ID' },
+    {
+      key: 'machine_id',
+      label: 'Machine ID',
+      render: (value: string) => {
+        const machine = machines.find((m) => m.id === value)
+        return machine ? `M-${machine.machine_number}` : value
+      },
+    },
     { key: 'tpm', label: 'TMP' },
     { key: 'yarn_type', label: 'Yarn Type' },
     { key: 'weight', label: 'Weight (kg)' },
@@ -323,7 +358,17 @@ export default function DyeingPage() {
 
         fields={[
 
-          { name: 'machine_id', label: 'Machine ID', type: 'text', placeholder: 'e.g., M-01', required: true },
+          {
+            name: 'machine_id',
+            label: 'Machine ID',
+            type: 'select',
+            placeholder: 'Select Machine',
+            required: true,
+            options: machines.map((m) => ({
+              value: m.id,
+              label: `M-${m.machine_number}`,
+            })),
+          },
           {
             name: 'yarn_type',
             label: 'Type',
@@ -350,21 +395,6 @@ export default function DyeingPage() {
                 label: e.tpm
               }))
           },
-          // { name: 'tpm', label: 'TPM', type: 'number', placeholder: '0', required: true },
-          // {
-          //   name: 'yarn_type',
-          //   label: 'Type',
-          //   type: 'select',
-          //   placeholder: 'Select yarn type',
-          //   required: true,
-          //   options: [
-          //     ...totalEntries.map((entry) => ({
-          //       value: entry.yarn_type,
-          //       label: entry.yarn_type,
-          //     })),
-          //   ],
-
-          // },
           { name: 'weight', label: 'Weight (kg)', type: 'number', placeholder: '0.00', required: true },
           { name: 'color', label: 'Dye Color', type: 'text', placeholder: 'e.g., Deep Blue', required: true },
           { name: 'output_weight', label: 'Output Weight (kg)', type: 'number', placeholder: '0.00', required: true },

@@ -38,11 +38,17 @@ export default function ConningPage() {
     color: '',
     total_output_weight: ''
   })
+  type Machine = {
+    id: string
+    machine_number: string
+  }
+  const [machines, setMachines] = useState<Machine[]>([])
 
 
   useEffect(() => {
     if (user?.company_id) {
       loadEntries()
+      loadMachines()
     }
   }, [user])
 
@@ -98,6 +104,31 @@ export default function ConningPage() {
     }
   }
 
+  const loadMachines = async () => {
+    if (!user?.company_id) return
+
+    try {
+      const res = await fetch(
+        `/api/machines?company_id=${user.company_id}&machine_type=Automatic Cone`
+      )
+
+      const json = await res.json()
+
+      if (json.status) {
+        const formatted = json.data.map((item: any) => ({
+          id: String(item.id),
+          machine_number: String(item.machine_number),
+        }))
+
+        setMachines(formatted)
+      } else {
+        toast.error(json.message || "Failed to load machines")
+      }
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
+
   const handleAddNew = () => {
     setSelectedYarn("")
     setSelectedTpm("")
@@ -119,7 +150,6 @@ export default function ConningPage() {
     setIsModalOpen(true)
   }
 
-
   const handleYarn = () => {
     setYarnForm({
       yarn_type: '',
@@ -133,6 +163,7 @@ export default function ConningPage() {
     setSelectedYarnWeight("") // reset weight when opening modal
     setIsYarnModalOpen(true)
   }
+
   const handleEdit = (entry: ConningEntry) => {
     setEditingEntry(entry)
 
@@ -258,7 +289,14 @@ export default function ConningPage() {
   }
   const columns = [
     { key: 'created_at', label: 'Date' },
-    { key: 'machine_id', label: 'Machine ID' },
+    {
+      key: 'machine_id',
+      label: 'Machine ID',
+      render: (value: string) => {
+        const machine = machines.find((m) => m.id === value)
+        return machine ? `M-${machine.machine_number}` : value
+      },
+    },
     { key: 'tpm', label: 'TPM' },
     { key: 'yarn_type', label: 'Yarn Type' },
     { key: 'color', label: 'Color' },
@@ -379,7 +417,17 @@ export default function ConningPage() {
         fields={[
 
 
-          { name: 'machine_id', label: 'Machine ID', type: 'text', placeholder: 'Enter machine ID', required: true },
+          {
+            name: 'machine_id',
+            label: 'Machine ID',
+            type: 'select',
+            placeholder: 'Select Machine',
+            required: true,
+            options: machines.map((m) => ({
+              value: m.id,
+              label: `M-${m.machine_number}`,
+            })),
+          },
           {
             name: 'yarn_type',
             label: 'Type',

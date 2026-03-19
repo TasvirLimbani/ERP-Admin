@@ -39,8 +39,15 @@ export default function TPMPage() {
     yarn_type: '',
     total_weight: ''
   })
+  type Machine = {
+    id: string
+    machine_number: string
+  }
+  const [machines, setMachines] = useState<Machine[]>([])
+
   useEffect(() => {
     loadEntries()
+    loadMachines()
   }, [user?.company_id])
 
   const loadEntries = async () => {
@@ -84,6 +91,31 @@ export default function TPMPage() {
     }
   }
 
+  const loadMachines = async () => {
+    if (!user?.company_id) return
+
+    try {
+      const res = await fetch(
+        `/api/machines?company_id=${user.company_id}&machine_type=Twisting Machine`
+      )
+
+      const json = await res.json()
+
+      if (json.status) {
+        const formatted = json.data.map((item: any) => ({
+          id: String(item.id),
+          machine_number: String(item.machine_number),
+        }))
+
+        setMachines(formatted)
+      } else {
+        toast.error(json.message || "Failed to load machines")
+      }
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
+
   const handleAddNew = () => {
     setEditingEntry({
       id: '',
@@ -102,7 +134,6 @@ export default function TPMPage() {
     setIsModalOpen(true)
   }
 
-
   const handleYarn = () => {
 
     setYarnForm({
@@ -111,6 +142,7 @@ export default function TPMPage() {
     })
     setIsYarnModalOpen(true)
   }
+
   const handleYarnChange = (value: string) => {
     const yarn = totalEntries.find((y) => y.yarn_type === value)
 
@@ -166,7 +198,6 @@ export default function TPMPage() {
     return batchId  // e.g., 173045
   }
 
-
   const handleSubmit = async (data: Record<string, any>) => {
     try {
       console.log("Yarn Type in TPM form:", data.yarn_type); // Debug log for yarn type
@@ -217,8 +248,8 @@ export default function TPMPage() {
       key: 'machine_no',
       label: 'Machine ID',
       render: (value: string) => {
-        const num = value.replace(/\D/g, '') // remove non numbers
-        return `M-${num.padStart(2, '0')}`
+        const machine = machines.find((m) => m.id === value)
+        return machine ? `M-${machine.machine_number}` : value
       },
     },
     {
@@ -330,7 +361,17 @@ export default function TPMPage() {
         fields={[
 
           { name: 'batch_id', label: 'Batch ID', type: 'text', placeholder: 'Auto Generated', readOnly: true, disabled: true },
-          { name: 'machine_no', label: 'Machine ID', type: 'text', placeholder: 'e.g., M-001', required: true },
+          {
+            name: 'machine_no',
+            label: 'Machine ID',
+            type: 'select',
+            placeholder: 'Select Machine',
+            required: true,
+            options: machines.map((m) => ({
+              value: m.id,
+              label: `M-${m.machine_number}`,
+            })),
+          },
           { name: 'tpm', label: 'TPM (Turns/Min)', type: 'number', placeholder: '0.00', required: true },
           {
             name: 'yarn_type',
