@@ -110,7 +110,7 @@ export function FormModal({
         </div>
 
         {/* BODY (SCROLL ONLY HERE) */}
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="px-6 overflow-y-auto flex-1">
           <form onSubmit={handleSubmit} className="space-y-4">
 
             <div className="flex row text-sm font-medium text-foreground mb-2">

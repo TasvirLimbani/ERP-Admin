@@ -294,7 +294,7 @@ export default function ConningPage() {
       label: 'Machine ID',
       render: (value: string) => {
         const machine = machines.find((m) => m.id === value)
-        return machine ? `M-${machine.machine_number}` : value
+        return machine ? `${machine.machine_number}` : value
       },
     },
     { key: 'tpm', label: 'TPM' },
@@ -425,7 +425,7 @@ export default function ConningPage() {
             required: true,
             options: machines.map((m) => ({
               value: m.id,
-              label: `M-${m.machine_number}`,
+              label: `${m.machine_number}`,
             })),
           },
           {

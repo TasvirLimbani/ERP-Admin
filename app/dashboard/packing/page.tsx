@@ -279,7 +279,7 @@ export default function PackingPage() {
       label: 'Machine ID',
       render: (value: string) => {
         const machine = machines.find((m) => m.id === value)
-        return machine ? `M-${machine.machine_number}` : value
+        return machine ? `${machine.machine_number}` : value
       },
     },
 
@@ -456,7 +456,7 @@ export default function PackingPage() {
             required: true,
             options: machines.map((m) => ({
               value: m.id,
-              label: `M-${m.machine_number}`,
+              label: `${m.machine_number}`,
             })),
           },
           { name: 'extra_pis', label: 'Extra Pise', type: 'text', placeholder: 'e.g., 10', required: false },

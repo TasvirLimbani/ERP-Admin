@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Fair Method',
+    title: 'Radhe ERM Admin',
   },
   viewport: {
     width: 'device-width',
@@ -58,7 +58,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Fair Method" />
+        <meta name="apple-mobile-web-app-title" content="Radhe ERM Admin" />
         <meta name="msapplication-TileColor" content="#7c4eff" />
       </head>
       <body className="font-sans antialiased">

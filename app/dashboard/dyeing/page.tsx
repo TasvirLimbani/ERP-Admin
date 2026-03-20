@@ -27,6 +27,7 @@ export default function DyeingPage() {
   const [selectedYarn, setSelectedYarn] = useState<string>("")
   const [selectedTpm, setSelectedTpm] = useState<string>("")
   const [selectedYarnWeight, setSelectedYarnWeight] = useState<string>("")
+  const [selectedMachine, setSelectedMachine] = useState<string>("")
   const { user } = useAuth()
   const [isYarnModalOpen, setIsYarnModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -190,21 +191,20 @@ export default function DyeingPage() {
   const handleSubmit = async (data: Record<string, any>) => {
     try {
       const formData: DyeingEntry = {
-        id: editingEntry ? editingEntry.id : "",
-        tpm: data.tpm || selectedTpm || "0",
-        yarn_type: data.yarn_type || selectedYarn || "",
-        output_weight: data.output_weight || "0",
-        created_at: editingEntry
-          ? editingEntry.created_at
-          : new Date().toISOString().split("T")[0],
-        color: data.color || '',
-        weight: data.weight || '0',
-        machine_id: data.machine_id || '',
+        id: editingEntry?.id || "",
+        yarn_type: selectedYarn || data.yarn_type,
+        tpm: Number(selectedTpm || data.tpm),
+        output_weight: Number(data.output_weight),
+        created_at: editingEntry?.created_at || new Date().toISOString().split("T")[0],
+        color: data.color,
+        weight: Number(data.weight),
+        machine_id: selectedMachine || data.machine_id,
         company_id: String(user?.company_id || ''),
         admin_id: String(user?.id || ''),
-        status: editingEntry?.status || "running",
-
+        status: data.status || editingEntry?.status || "running",
       }
+
+      console.log("FINAL API DATA:", formData) // 🔍 DEBUG
 
       const res = await fetch("/api/dyeing", {
         method: "POST",
@@ -221,6 +221,11 @@ export default function DyeingPage() {
         setIsModalOpen(false)
         loadEntries()
         setEditingEntry(null)
+
+        // ✅ reset states
+        setSelectedYarn("")
+        setSelectedTpm("")
+        setSelectedMachine("")
       } else {
         toast.error(json.message || "Failed to save entry")
       }
@@ -268,7 +273,7 @@ export default function DyeingPage() {
       label: 'Machine ID',
       render: (value: string) => {
         const machine = machines.find((m) => m.id === value)
-        return machine ? `M-${machine.machine_number}` : value
+        return machine ? `${machine.machine_number}` : value
       },
     },
     { key: 'tpm', label: 'TMP' },
@@ -366,7 +371,7 @@ export default function DyeingPage() {
             required: true,
             options: machines.map((m) => ({
               value: m.id,
-              label: `M-${m.machine_number}`,
+              label: `${m.machine_number}`,
             })),
           },
           {

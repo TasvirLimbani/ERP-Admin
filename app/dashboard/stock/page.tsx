@@ -6,11 +6,14 @@ import { FormModal } from '@/components/form-modal'
 import { storage, generateId } from '@/lib/storage'
 import type { StockEntry } from '@/lib/types'
 import { toast } from 'sonner'
+import { useAuth } from '@/lib/auth-context'
 
 export default function StockPage() {
   const [entries, setEntries] = useState<StockEntry[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<StockEntry | null>(null)
+  const { user } = useAuth()
+
 
   useEffect(() => {
     loadEntries()
@@ -18,7 +21,7 @@ export default function StockPage() {
 
   const loadEntries = async () => {
     try {
-      const res = await fetch(`/api/stock?company_id=1`); // ⚠️ replace with user?.company_id
+      const res = await fetch(`/api/stock?company_id=${user?.company_id}`); // ⚠️ replace with user?.company_id
       const json = await res.json();
 
       if (json.status) {
@@ -111,7 +114,7 @@ export default function StockPage() {
         title="Stock Entries"
         columns={columns}
         data={entries}
-       
+
         emptyState="No stock entries yet. Click 'Add New' to create one."
       />
 

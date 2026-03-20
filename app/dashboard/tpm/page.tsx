@@ -249,7 +249,7 @@ export default function TPMPage() {
       label: 'Machine ID',
       render: (value: string) => {
         const machine = machines.find((m) => m.id === value)
-        return machine ? `M-${machine.machine_number}` : value
+        return machine ? `${machine.machine_number}` : value
       },
     },
     {
@@ -329,35 +329,6 @@ export default function TPMPage() {
         isOpen={isModalOpen}
         title={editingEntry ? 'Edit TPM Entry' : 'Add New TPM Entry'}
 
-        dropone={
-          [
-            {
-              name: 'yarn_type',
-              label: 'Type',
-              type: 'select',
-              placeholder: 'Select yarn type',
-              required: true,
-              onChange: handleYarnChange,
-              options: [
-                ...totalEntries.map((entry) => ({
-                  value: entry.yarn_type,
-                  label: entry.yarn_type,
-                })),
-              ],
-
-            },
-            {
-              name: 'total_weight',
-              label: 'Total Weight',
-              type: 'text',
-              value: yarnForm.total_weight,
-              placeholder: '0.00 KG',
-              readOnly: true,
-              disabled: true
-            }
-          ]
-        }
-
         fields={[
 
           { name: 'batch_id', label: 'Batch ID', type: 'text', placeholder: 'Auto Generated', readOnly: true, disabled: true },
@@ -369,7 +340,7 @@ export default function TPMPage() {
             required: true,
             options: machines.map((m) => ({
               value: m.id,
-              label: `M-${m.machine_number}`,
+              label: `${m.machine_number}`,
             })),
           },
           { name: 'tpm', label: 'TPM (Turns/Min)', type: 'number', placeholder: '0.00', required: true },

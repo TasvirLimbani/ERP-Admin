@@ -7,6 +7,7 @@ type User = {
   name: string
   email: string
   company_id: number
+  company_name: string
   department: string
 }
 
