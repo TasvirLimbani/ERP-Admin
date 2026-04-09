@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { DataTable } from '@/components/data-table'
 import { FormModal } from '@/components/form-modal'
 import { storage, generateId } from '@/lib/storage'
@@ -15,7 +15,10 @@ import { Weight } from 'lucide-react'
 export interface DyeingTotalEntry {
   tpm: string
   yarn_type: string
+  yarn_sub_type?: string
   color: string
+  category: string
+  cone_size: string
   total_output_weight: number
 }
 
@@ -29,13 +32,19 @@ export default function DyeingPage() {
   const [selectedYarnWeight, setSelectedYarnWeight] = useState<string>("")
   const [selectedMachine, setSelectedMachine] = useState<string>("")
   const { user } = useAuth()
+  const [category, setCategory] = useState<string>("")
   const [isYarnModalOpen, setIsYarnModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [formState, setFormState] = useState<any>({})
+  const [status, setStatus] = useState("running")
   const [yarnForm, setYarnForm] = useState({
     yarn_type: '',
+    yarn_sub_type: '',
     tpm: '',
     total_output_weight: ''
   })
+
+
   type Machine = {
     id: string
     machine_number: string
@@ -64,6 +73,7 @@ export default function DyeingPage() {
         const formatted = totalJson.data.map((item: DyeingTotalEntry) => ({
           tpm: item.tpm,
           yarn_type: item.yarn_type,
+          yarn_sub_type: item.yarn_sub_type,
           total_output_weight: parseFloat(item.total_output_weight.toString()),
         }))
 
@@ -81,11 +91,13 @@ export default function DyeingPage() {
           admin_id: item.admin_id,
           machine_id: item.machine_id,
           yarn_type: item.yarn_type,
+          yarn_sub_type: item.yarn_sub_type,
           tpm: item.tpm,
           weight: item.weight,
           output_weight: item.output_weight,
           color: item.color,
           status: item.status,
+          category: item.category, // ✅ ADD THIS
           created_at: item.created_at?.split(' ')[0],
         }))
 
@@ -102,44 +114,35 @@ export default function DyeingPage() {
     }
   }
 
-  const loadMachines = async () => {
-    if (!user?.company_id) return
-
-    try {
-      const res = await fetch(
-        `/api/machines?company_id=${user.company_id}&machine_type=Dyeing Machine`
-      )
-
-      const json = await res.json()
-
-      if (json.status) {
-        const formatted = json.data.map((item: any) => ({
-          id: String(item.id),
-          machine_number: String(item.machine_number),
-        }))
-
-        setMachines(formatted)
-      } else {
-        toast.error(json.message || "Failed to load machines")
-      }
-    } catch (err: any) {
-      toast.error(err.message)
-    }
-  }
-
   useEffect(() => {
     console.log("Total Entries Updated::::: ", totalEntries) // Debug log to check total entries update
   }, [totalEntries])
 
+
+  const getSubTypes = (type: string) => {
+    if (!type) return [] // ✅ IMPORTANT
+
+    return [
+      ...new Set(
+        totalEntries
+          .filter(y => y.yarn_type === type && y.yarn_sub_type)
+          .map(y => y.yarn_sub_type as string)
+      )
+    ]
+  }
   const handleAddNew = () => {
+    setFormState({})
     setSelectedYarn("")
+    setSelectedMachine("")
     setSelectedTpm("")
     setSelectedYarnWeight("")
+    setStatus("running")
 
     setEditingEntry({
       id: '',
       machine_id: '',
       yarn_type: '',
+      yarn_sub_type: '',
       color: '',
       output_weight: '',
       status: 'running',
@@ -152,9 +155,38 @@ export default function DyeingPage() {
     setIsModalOpen(true)
   }
 
+
+
+  const loadMachines = async () => {
+    if (!user?.company_id) return
+
+    try {
+      const res = await fetch(
+        `/api/machines?company_id=${user.company_id}&machine_type=Dyeing Machine`
+      )
+
+      const json = await res.json()
+
+      if (json.status) {
+        const formatted = json.data.map((item: any) => ({
+          // id: String(item.id),
+          machine_number: String(item.machine_number),
+        }))
+
+        setMachines(formatted)
+      } else {
+        toast.error(json.message || "Failed to load machines")
+      }
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
+
+
   const handleYarn = () => {
     setYarnForm({
       yarn_type: '',
+      yarn_sub_type: '',
       tpm: '',
       total_output_weight: ''
     })
@@ -163,11 +195,27 @@ export default function DyeingPage() {
     setSelectedYarnWeight("") // reset weight when opening modal
     setIsYarnModalOpen(true)
   }
-
   const handleEdit = (entry: DyeingEntry) => {
     setEditingEntry(entry)
+
+    // ✅ set all selected states from entry
+    setSelectedYarn(entry.yarn_type || "")
+
+    setSelectedTpm(String(entry.tpm) || "")
+    setSelectedMachine(entry.machine_id || "")
+    setStatus(entry.status || "running")
+    setCategory(entry.category || "") // ✅ NEW
+
+    console.log("Editing Entry::::::::::::::: :", entry.machine_id) // check in console
+
+    setFormState({
+      yarn_sub_type: entry.yarn_sub_type || ""
+    })
+
+
     setIsModalOpen(true)
   }
+
 
   const handleDelete = async (entry: DyeingEntry) => {
     if (!confirm("Are you sure you want to delete this entry?")) return
@@ -188,11 +236,52 @@ export default function DyeingPage() {
     }
   }
 
+
+
+  const handleSubType = (sub: string) => {
+    setYarnForm((prev) => ({
+      ...prev,
+      yarn_sub_type: sub
+    }))
+
+    const yarn = totalEntries.find(
+      y =>
+        y.yarn_type === yarnForm.yarn_type &&
+        y.yarn_sub_type === sub &&
+        y.tpm === yarnForm.tpm
+    )
+
+    if (yarn) {
+      setSelectedYarnWeight(yarn.total_output_weight.toString())
+
+      setYarnForm(prev => ({
+        ...prev,
+        total_output_weight: yarn.total_output_weight.toString()
+      }))
+    } else {
+      setSelectedYarnWeight("")
+
+      setYarnForm(prev => ({
+        ...prev,
+        total_output_weight: ""
+      }))
+    }
+  }
+
+  const subTypeOptions = useMemo(() => {
+    return getSubTypes(yarnForm.yarn_type).map(s => ({
+      value: s || '',
+      label: s || ''
+    }))
+  }, [yarnForm.yarn_type, totalEntries])
+
+
   const handleSubmit = async (data: Record<string, any>) => {
     try {
       const formData: DyeingEntry = {
         id: editingEntry?.id || "",
         yarn_type: selectedYarn || data.yarn_type,
+        yarn_sub_type: formState.yarn_sub_type || "",
         tpm: Number(selectedTpm || data.tpm),
         output_weight: Number(data.output_weight),
         created_at: editingEntry?.created_at || new Date().toISOString().split("T")[0],
@@ -201,7 +290,8 @@ export default function DyeingPage() {
         machine_id: selectedMachine || data.machine_id,
         company_id: String(user?.company_id || ''),
         admin_id: String(user?.id || ''),
-        status: data.status || editingEntry?.status || "running",
+        status: status,
+        category: status === "completed" ? data.category : "",
       }
 
       console.log("FINAL API DATA:", formData) // 🔍 DEBUG
@@ -237,50 +327,101 @@ export default function DyeingPage() {
 
   const handleYarnChange = (value: string) => {
     setSelectedYarn(value)
-    setYarnForm((prev) => ({
-      ...prev,
-      yarn_type: value
-    }))
+
+    setYarnForm({
+      yarn_type: value,
+      yarn_sub_type: "",
+      tpm: "",
+      total_output_weight: ""
+    })
+
     setSelectedTpm("")
     setSelectedYarnWeight("")
   }
+
+  const handleMachineChange = (value: string) => {
+    setSelectedMachine(value)
+  }
+  const handelsatusChange = (value: string) => {
+    setStatus(value)
+  }
   const handleTpmChange = (value: string) => {
     setSelectedTpm(value)
+
     setYarnForm((prev) => ({
       ...prev,
       tpm: value
     }))
+
     const yarn = totalEntries.find(
-      (y) => y.yarn_type === selectedYarn && y.tpm === value
+      y =>
+        y.yarn_type === yarnForm.yarn_type &&
+        y.yarn_sub_type === yarnForm.yarn_sub_type &&
+        y.tpm === value
     )
 
     if (yarn) {
-
-      setYarnForm({
-        yarn_type: yarn.yarn_type,
-        tpm: yarn.tpm,
-        total_output_weight: yarn.total_output_weight.toString()
-      })
       setSelectedYarnWeight(yarn.total_output_weight.toString())
+
+      setYarnForm(prev => ({
+        ...prev,
+        total_output_weight: yarn.total_output_weight.toString()
+      }))
     } else {
       setSelectedYarnWeight("")
+
+      setYarnForm(prev => ({
+        ...prev,
+        total_output_weight: ""
+      }))
     }
   }
+
   const columns = [
     { key: 'created_at', label: 'Date' },
+    // { key: 'machine_id', label: 'Machine ID' },
+    { key: 'tpm', label: 'TMP' },
     {
-      key: 'machine_id',
-      label: 'Machine ID',
-      render: (value: string) => {
-        const machine = machines.find((m) => m.id === value)
-        return machine ? `${machine.machine_number}` : value
+      key: 'category',
+      label: 'Category',
+      render: (value: string) => value ? value : '-'
+    },
+    { key: 'yarn_type', label: 'Yarn Type' },
+    { key: 'yarn_sub_type', label: 'Yarn Sub Type' },
+    {
+      key: 'weight_combined',
+      label: 'Weight (kg)',
+      render: (_: any, row: any) => {
+        return (
+          <div>
+            <span className="text-blue-600">In: {row.weight || 0}</span>
+            <br />
+            <span className="text-green-600">Out: {row.output_weight || 0} </span>
+          </div>
+        )
       },
     },
-    { key: 'tpm', label: 'TMP' },
-    { key: 'yarn_type', label: 'Yarn Type' },
-    { key: 'weight', label: 'Weight (kg)' },
-    { key: 'output_weight', label: 'Output Weight (kg)' },
     { key: 'color', label: 'Dye Color' },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (value: string) => {
+        const statusColors: Record<string, string> = {
+          pending: 'bg-blue-500',
+          running: 'bg-yellow-500',
+          completed: 'bg-green-700',
+          cancelled: 'bg-red-500',
+        }
+
+        return (
+          <div className="flex justify-center">
+            <span
+              className={`h-3 w-3 bg-blue-500 rounded ${statusColors[value] || 'bg-gray-400'}`}
+            ></span>
+          </div>
+        )
+      },
+    }
 
   ]
 
@@ -288,8 +429,26 @@ export default function DyeingPage() {
     <div className="p-6 md:p-8 max-w-7xl mx-auto">
       <div className='row flex justify-between items-center'>
         <div className="mb-8">
+
           <h1 className="text-3xl font-bold text-foreground mb-2">Dyeing Management</h1>
           <p className="text-muted-foreground">Manage dyeing batches and colors</p>
+
+          <div className='row flex items-center mt-4 text-sm text-foreground'>
+            <div className="h-3 w-3 bg-blue-500 rounded">
+            </div>
+            <span className="ml-2">Pending</span>
+            <div className="ml-2 h-3 w-3 bg-yellow-500 rounded">
+            </div>
+            <span className="ml-2">Running</span>
+
+            <div className="ml-2 h-3 w-3 bg-green-700 rounded">
+            </div>
+            <span className="ml-2">Completed</span>
+            <div className="ml-2 h-3 w-3 bg-red-500 rounded">
+            </div>
+            <span className="ml-2">Cancelled</span>
+          </div>
+
         </div>
 
         <Button
@@ -297,7 +456,7 @@ export default function DyeingPage() {
           className="bg-primary/80 hover:bg-primary/60 text-primary-foreground gap-2"
         >
           <Weight size={16} />
-          Check Stock
+          Status check
         </Button>
       </div>
       <DataTable
@@ -308,6 +467,7 @@ export default function DyeingPage() {
         onAddNew={handleAddNew}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        isLoading={loading}
         emptyState="No dyeing entries yet. Click 'Add New' to create one."
       />
 
@@ -319,7 +479,6 @@ export default function DyeingPage() {
           {
             name: 'yarn_type',
             label: 'Type',
-            value: yarnForm.yarn_type,
             type: 'select',
             placeholder: 'Select yarn type',
             onChange: handleYarnChange,
@@ -329,24 +488,37 @@ export default function DyeingPage() {
             }))
           },
           {
+            name: 'yarn_sub_type',
+            label: 'Sub Type',
+            type: 'select',
+            placeholder: 'Select yarn sub type',
+            options: subTypeOptions,
+            onChange: handleSubType,
+          },
+          {
             name: 'tpm',
             label: 'TPM',
             type: 'select',
-            value: yarnForm.tpm,
             placeholder: 'Select TPM',
             onChange: handleTpmChange,
-            options: totalEntries
-              .filter(e => !selectedYarn || e.yarn_type === selectedYarn)
-              .map(e => ({
-                value: e.tpm,
-                label: e.tpm
-              }))
+            options: [
+              ...new Set(
+                totalEntries
+                  .filter(e =>
+                    e.yarn_type === yarnForm.yarn_type &&
+                    e.yarn_sub_type === yarnForm.yarn_sub_type
+                  )
+                  .map(e => e.tpm)
+              )
+            ].map(tpm => ({
+              value: tpm,
+              label: tpm
+            }))
           },
           {
             name: 'total_output_weight',
             label: 'Total Weight',
             type: 'text',
-            // value: selectedYarnWeight,
             placeholder: '0.00 KG',
             readOnly: true,
             disabled: true
@@ -368,16 +540,19 @@ export default function DyeingPage() {
             label: 'Machine ID',
             type: 'select',
             placeholder: 'Select Machine',
+            value: selectedMachine,
             required: true,
+            onChange: handleMachineChange,
             options: machines.map((m) => ({
-              value: m.id,
+              value: m.machine_number,
               label: `${m.machine_number}`,
             })),
           },
+
           {
             name: 'yarn_type',
             label: 'Type',
-            value: selectedYarn || editingEntry?.yarn_type || "",
+            value: selectedYarn || editingEntry?.yarn_type,
             type: 'select',
             placeholder: 'Select yarn type',
             onChange: handleYarnChange,
@@ -387,24 +562,86 @@ export default function DyeingPage() {
             }))
           },
           {
+            name: 'yarn_sub_type',
+            label: 'Sub Type',
+            type: 'select',
+            required: true,
+            disabled: !selectedYarn,
+            value: formState.yarn_sub_type || "",
+            onChange: (val: string) => {
+              setFormState((prev: any) => ({
+                ...prev,
+                yarn_sub_type: val
+              }))
+            },
+            options: (getSubTypes(selectedYarn) || []).map(s => ({
+              value: s,
+              label: s,
+            }))
+          },
+          {
             name: 'tpm',
             label: 'TPM',
             type: 'select',
-            value: selectedTpm || editingEntry?.tpm || "",
             placeholder: 'Select TPM',
-            onChange: handleTpmChange,
-            options: totalEntries
-              .filter(e => !selectedYarn || e.yarn_type === selectedYarn)
-              .map(e => ({
-                value: e.tpm,
-                label: e.tpm
-              }))
+
+            options: [
+              ...new Set(
+                totalEntries
+                  .filter(e => {
+                    if (!selectedYarn) return true
+
+                    // ✅ If subtype selected → STRICT match only
+                    if (formState.yarn_sub_type) {
+                      return (
+                        e.yarn_type === selectedYarn &&
+                        e.yarn_sub_type === formState.yarn_sub_type
+                      )
+                    }
+
+                    // ✅ If no subtype → show all TPM for yarn
+                    return e.yarn_type === selectedYarn
+                  })
+                  .map(e => e.tpm)
+              )
+            ].map(tpm => ({
+              value: tpm,
+              label: tpm
+            }))
+
           },
-          { name: 'weight', label: 'Weight (kg)', type: 'number', placeholder: '0.00', required: true },
-          { name: 'color', label: 'Dye Color', type: 'text', placeholder: 'e.g., Deep Blue', required: true },
-          { name: 'output_weight', label: 'Output Weight (kg)', type: 'number', placeholder: '0.00', required: true },
+
+          { name: 'weight', value: editingEntry?.weight, label: 'Weight (kg)', type: 'number', placeholder: '0.00', required: true },
+          { name: 'color', value: editingEntry?.color, label: 'Dye Color', type: 'text', placeholder: 'e.g., Deep Blue', required: true },
+          { name: 'output_weight', value: editingEntry?.output_weight, label: 'Output Weight (kg)', type: 'number', placeholder: '0.00', required: true },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            required: true,
+            onChange: handelsatusChange,
+            options: [
+              { value: 'running', label: 'Running' },
+              { value: 'pending', label: 'Pending' },
+              { value: 'completed', label: 'Completed' },
+              { value: 'cancelled', label: 'Cancelled' },
+            ]
+          },
+
+          ...(status === "completed"
+            ? ([{
+              name: 'category',
+              label: 'Category',
+              type: 'text',
+              placeholder: 'Enter category',
+              required: true,
+              value: category,
+              onChange: (val: string) => setCategory(val)
+            }] as any)
+            : [])
 
         ]}
+
         initialData={editingEntry || undefined}
         onSubmit={handleSubmit}
         onClose={() => {
@@ -412,6 +649,7 @@ export default function DyeingPage() {
           setSelectedYarn("")
           setSelectedTpm("")
           setSelectedYarnWeight("")
+          setFormState({}) // ✅ ADD THIS
         }}
       />
     </div>

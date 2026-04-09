@@ -10,7 +10,7 @@ interface FormField {
   name: string
   label: string
   value?: string
-  type: 'text' | 'number' | 'date' | 'textarea' | 'select' | 'toggle'
+  type: 'text' | 'number' | 'date' | 'textarea' | 'select'
   placeholder?: string
   options?: { label: string; value: string }[]
   onChange?: (value: any) => void
@@ -46,33 +46,39 @@ export function FormModal({
   const [dropFieldTypes, setDropFieldTypes] = useState<Record<string, 'text' | 'select'>>({})
 
   useEffect(() => {
+    if (!isOpen) return
+
     const newData: Record<string, any> = {}
     const newTypes: Record<string, 'text' | 'select'> = {}
 
     fields.forEach((field) => {
-      // ✅ ADDED: toggle default value (ONLY ADDITION)
-      newData[field.name] =
-        initialData?.[field.name] ||
-        (field.type === 'toggle' ? 'active' : '')
+    newData[field.name] = initialData?.[field.name] ?? field.value ?? ''
 
       if (field.type === 'select') {
         newTypes[field.name] = 'select'
       }
+
+      // ✅ RESET OTHER FLAG
+      newData[`${field.name}_is_other`] = false
     })
 
     setFormData(newData)
     setFieldTypes(newTypes)
 
-    // ✅ RESET DROPDOWN DATA WHEN MODAL OPENS
     setDropFormData({})
     setDropFieldTypes({})
-  }, [initialData, isOpen, fields])
+  }, [isOpen]) // ✅ ONLY isOpen
 
   if (!isOpen) return null
 
-  const handleChange = (name: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+const handleChange = (name: string, value: any, field?: FormField) => {
+  setFormData((prev) => ({
+    ...prev,
+    [name]: value,
+  }))
+
+  field?.onChange?.(value)
+}
   const handleChangedrop = (name: string, value: any) => {
     setDropFormData((prev) => ({ ...prev, [name]: value }))
   }
@@ -86,7 +92,17 @@ export function FormModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(formData)
+
+    const cleanedData = { ...formData }
+
+    // ✅ FIX: remove helper flags
+    Object.keys(cleanedData).forEach((key) => {
+      if (key.endsWith('_is_other')) {
+        delete cleanedData[key]
+      }
+    })
+
+    onSubmit(cleanedData)
   }
 
   return (
@@ -110,18 +126,24 @@ export function FormModal({
         </div>
 
         {/* BODY (SCROLL ONLY HERE) */}
-        <div className="px-6 overflow-y-auto flex-1">
+        <div className="px-6 pb-6 overflow-y-auto flex-1">
           <form onSubmit={handleSubmit} className="space-y-4">
 
+            {/* 👉 KEEP YOUR FULL FORM SAME HERE */}
+
+            {/* your full form content stays SAME */}
             <div className="flex row text-sm font-medium text-foreground mb-2">
               {dropone?.map((field) => (
                 <div className="mr-4" key={field.name}>
+
+
                   <div >
                     <label className="block text-sm font-medium text-foreground mb-2">
                       {field.label}
                       {field.required && <span className="text-destructive ml-1">*</span>}
                     </label>
 
+                    {/* Textarea */}
                     {field.type === 'textarea' ? (
                       <textarea
                         value={dropFormData[field.name] || ''}
@@ -131,26 +153,35 @@ export function FormModal({
                         rows={4}
                       />
                     ) :
+                      /* Select field with dynamic "Other" */
                       field.type === 'select' ? (
                         <select
-                          value={field.value ?? dropFormData[field.name] ?? ''} onChange={(e) => {
+                          value={formData[field.name] ?? ''}
+                          onChange={(e) => {
                             const value = e.target.value
-                            handleChangedrop(field.name, value)
-
-                            if (field.onChange) {
-                              field.onChange(value)
-                            }
 
                             if (value === 'other') {
-                              handleTypeChangedrop(field.name, 'text')
-                              handleChangedrop(field.name, '')
+                              handleTypeChange(field.name, 'text')
+
+                              setFormData((prev) => ({
+                                ...prev,
+                                [field.name]: '',
+                                [`${field.name}_is_other`]: true,
+                              }))
+                            } else {
+                              handleChange(field.name, value, field)
+
+                              setFormData((prev) => ({
+                                ...prev,
+                                [`${field.name}_is_other`]: false,
+                              }))
                             }
                           }}
                           className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                         >
                           <option value="">Select {field.label}</option>
-                          {field.options?.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
+                          {field.options?.map((opt, index) => (
+                            <option key={`${opt.value}-${index}`} value={opt.value}>
                               {opt.label}
                             </option>
                           ))}
@@ -159,19 +190,26 @@ export function FormModal({
                       ) : (
                         <Input
                           type="text"
-                          value={field.value ?? dropFormData[field.name] ?? ''}
-                          onChange={(e) => handleChangedrop(field.name, e.target.value)}
+                          value={formData[field.name] ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value
+
+                            setFormData((prev) => ({
+                              ...prev,
+                              [field.name]: val
+                            }))
+                          }}
                           placeholder={field.placeholder}
                           readOnly={field.readOnly}
                           disabled={field.disabled}
                           className="bg-background border-border/50 text-foreground placeholder:text-muted-foreground"
                         />
                       )}
-                  </div>
-                </div>
+                  </div>    </div>
               ))}
-            </div>
 
+
+            </div>
             {fields.map((field) => (
               <div key={field.name}>
                 <label className="block text-sm font-medium text-foreground mb-2">
@@ -179,91 +217,73 @@ export function FormModal({
                   {field.required && <span className="text-destructive ml-1">*</span>}
                 </label>
 
-                {/* ✅ ADDED TOGGLE (ONLY ADDITION) */}
-                {field.type === 'toggle' ? (
-                  <div className="flex items-center justify-between">
-
-                    {/* LABEL LEFT (optional nice UX) */}
-                    <span className="text-sm text-foreground">
-                      {formData[field.name] === 'active' ? 'Active' : 'Inactive'}
-                    </span>
-
-                    {/* SWITCH */}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleChange(
-                          field.name,
-                          formData[field.name] === 'active' ? 'inactive' : 'active'
-                        )
-                      }
-                      className={`relative w-12 h-6 rounded-full transition-all duration-300 ${formData[field.name] === 'active'
-                        ? 'bg-green-500'
-                        : 'bg-gray-300'
-                        }`}
-                    >
-                      {/* CIRCLE */}
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transform transition-all duration-300 ${formData[field.name] === 'active'
-                          ? 'translate-x-6'
-                          : 'translate-x-0'
-                          }`}
-                      />
-                    </button>
-
-                  </div>
+                {/* Textarea */}
+                {field.type === 'textarea' ? (
+                  <textarea
+                    value={formData[field.name] || ''}
+                    onChange={(e) => handleChange(field.name, e.target.value)}
+                    placeholder={field.placeholder}
+                    className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    rows={4}
+                  />
                 ) :
-                  field.type === 'textarea' ? (
-                    <textarea
+                  /* Select field with dynamic "Other" */
+                  field.type === 'select' && fieldTypes[field.name] === 'select' ? (
+                    // <select
+                    //   value={formData[field.name] || ''}
+                    //   onChange={(e) => {
+                    //     const value = e.target.value
+                    //     handleChange(field.name, value)
+                    //     if (value === 'other') {
+                    //       handleTypeChange(field.name, 'text')
+                    //       handleChange(field.name, '')
+                    //     }
+                    //   }}
+                    //   className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    // >
+                    <select
+                     value={formData[field.name] ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value
+
+                        handleChange(field.name, value)
+
+                        if (field.onChange && value !== 'other') {
+                          field.onChange(value)
+                        }
+
+                        if (value === 'other') {
+                          handleTypeChange(field.name, 'text')
+
+                          // store special flag
+                          setFormData((prev) => ({
+                            ...prev,
+                            [field.name]: '',
+                            [`${field.name}_is_other`]: true
+                          }))
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="">Select {field.label}</option>
+                      {field.options?.map((opt, index) => (
+                        <option key={`${opt.value}-${index}`} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                      <option value="other">Other</option>
+                    </select>
+                  ) : (
+                    <Input
+                      type="text"
                       value={formData[field.name] || ''}
                       onChange={(e) => handleChange(field.name, e.target.value)}
                       placeholder={field.placeholder}
-                      className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      rows={4}
+                      readOnly={field.readOnly}
+                      disabled={field.disabled}
+                      className="bg-background border-border/50 text-foreground placeholder:text-muted-foreground"
                     />
-                  ) :
-                    field.type === 'select' && fieldTypes[field.name] === 'select' ? (
-                      <select
-                        value={field.value ?? formData[field.name] ?? ''}
-                        onChange={(e) => {
-                          const value = e.target.value
-
-                          handleChange(field.name, value)
-
-                          // if (field.onChange) {
-                          //   field.onChange(value)
-                          // }
-
-                          if (field.onChange && value !== 'other') {
-                            field.onChange(value)
-                          }
-
-                          if (value === 'other') {
-                            handleTypeChange(field.name, 'text')
-                            handleChange(field.name, '')
-                          }
-                        }}
-                        className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      >
-                        <option value="">Select {field.label}</option>
-                        {field.options?.map((opt, index) => (
-                          <option key={`${opt.value}-${index}`} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                        <option value="other">Other</option>
-                      </select>
-                    ) : (
-                      <Input
-                        type="text"
-                        value={formData[field.name] || ''}
-                        onChange={(e) => handleChange(field.name, e.target.value)}
-                        placeholder={field.placeholder}
-                        readOnly={field.readOnly}
-                        disabled={field.disabled}
-                        className="bg-background border-border/50 text-foreground placeholder:text-muted-foreground"
-                      />
-                    )}
+                  )}
               </div>
             ))}
 

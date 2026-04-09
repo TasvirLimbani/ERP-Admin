@@ -17,6 +17,23 @@ export async function POST(req: Request) {
 
     const data = await response.json();
 
+    // If login failed (invalid email/password)
+    if (!data.status) {
+      return NextResponse.json({
+        status: false,
+        message: data.message || "Invalid email or password"
+      }, { status: 401 });
+    }
+
+    // If user is not admin
+    if (data.role !== "admin") {
+      return NextResponse.json({
+        status: false,
+        message: "Access denied. Only admin users can login."
+      }, { status: 403 });
+    }
+
+    // User is admin, allow login
     return NextResponse.json(data);
 
   } catch (error) {

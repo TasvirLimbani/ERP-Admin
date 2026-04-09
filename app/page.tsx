@@ -31,12 +31,12 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
 
-    const success = await login(email, password)
+    const result = await login(email, password)
 
-    if (success) {
+    if (result.success) {
       router.replace("/dashboard")
     } else {
-      setError("Login Failed")
+      setError(result.message || "Login failed")
     }
 
     setIsLoading(false)

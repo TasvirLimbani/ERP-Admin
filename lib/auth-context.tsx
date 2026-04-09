@@ -15,7 +15,7 @@ type AuthContextType = {
   user: User | null
   role: string | null
   loading: boolean
-  login: (email: string, password: string) => Promise<boolean>
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>
   logout: () => void
 }
 
@@ -64,15 +64,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("user", JSON.stringify(data.user))
         localStorage.setItem("role", data.role)
 
-        return true
+        return { success: true }
       }
 
-      return false
+      return { success: false, message: data.message || "Login failed" }
 
     } catch (error) {
 
       console.log("Login Error", error)
-      return false
+      return { success: false, message: "Server error" }
 
     }
 

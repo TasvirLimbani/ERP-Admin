@@ -16,6 +16,7 @@ export interface ConingTotalEntry {
   tpm: string
   yarn_type: string
   color: string
+  category: string
   total_output_weight: number
 }
 
@@ -29,15 +30,24 @@ export default function ConningPage() {
   const [selectedColor, setSelectedColor] = useState<string>("")
   const [editingEntry, setEditingEntry] = useState<ConningEntry | null>(null)
   const [selectedYarnWeight, setSelectedYarnWeight] = useState<string>("")
+  const [selectedMachine, setSelectedMachine] = useState<string>("")
+  const [liveAverage, setLiveAverage] = useState("0.00")
   const { user } = useAuth()
   const [isYarnModalOpen, setIsYarnModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    weight: 0,
+    cones: 0
+  })
   const [yarnForm, setYarnForm] = useState({
     yarn_type: '',
     tpm: '',
     color: '',
+    category: '',
     total_output_weight: ''
   })
+
+
   type Machine = {
     id: string
     machine_number: string
@@ -68,6 +78,7 @@ export default function ConningPage() {
           tpm: String(item.tpm),
           color: String(item.color),
           yarn_type: String(item.yarn_type),
+          category: String(item.category),
           total_output_weight: item.total_output_weight,
         }))
 
@@ -83,6 +94,7 @@ export default function ConningPage() {
           yarn_type: item.yarn_type,
           tpm: item.tpm,
           color: item.color,
+          category: item.category,
           weight: item.weight,
           cones: item.cones,
           cones_size: item.cones_size,
@@ -90,6 +102,7 @@ export default function ConningPage() {
           coning_total_weight: item.coning_total_weight,
           remaining_weight: item.remaining_weight,
           created_at: item.created_at?.split(" ")[0],
+          average: Number(item.weight) > 0 ? (Number(item.weight) / Number(item.cones || 1)).toFixed(2) : "0.00",
         }))
         setEntries(formatted)
 
@@ -103,6 +116,8 @@ export default function ConningPage() {
       setLoading(false)
     }
   }
+
+
 
   const loadMachines = async () => {
     if (!user?.company_id) return
@@ -139,6 +154,8 @@ export default function ConningPage() {
       company_id: String(user?.company_id || ""),
       machine_id: "",
       yarn_type: "",
+      category: "",
+      average: "",
       tpm: "",
       color: "",
       weight: "",
@@ -146,14 +163,16 @@ export default function ConningPage() {
       cones_size: "",
       date: new Date().toISOString().split("T")[0],
     })
-
+    setEditingEntry(null)
     setIsModalOpen(true)
   }
+
 
   const handleYarn = () => {
     setYarnForm({
       yarn_type: '',
       tpm: '',
+      category: '',
       color: '',
       total_output_weight: ''
     })
@@ -163,7 +182,6 @@ export default function ConningPage() {
     setSelectedYarnWeight("") // reset weight when opening modal
     setIsYarnModalOpen(true)
   }
-
   const handleEdit = (entry: ConningEntry) => {
     setEditingEntry(entry)
 
@@ -195,18 +213,23 @@ export default function ConningPage() {
   }
 
   const handleSubmit = async (data: Record<string, any>) => {
+
+
     try {
       const formData: ConningEntry = {
         id: editingEntry ? editingEntry.id : "",
         machine_id: data.machine_id || '',
         company_id: String(user?.company_id || ''),
-        tpm: data.tpm || " ",
-        yarn_type: data.yarn_type || "",
-        color: data.color || '',
-        weight: data.weight || '0',
+        category: data.category || '',
+        tpm: selectedTpm,
+        yarn_type: data.yarn_type || selectedYarn || "",
+        color: selectedColor || data.color || '', // ✅ FIXED
+        weight: Number(data.weight) || 0,
         cones_size: data.cones_size || '', // Placeholder, replace with actual cone size if needed
-        cones: data.cones || '', // Placeholder, replace with actual cone count if needed
+        cones: Number(data.cones) || 0, // Placeholder, replace with actual cone count if needed
         date: data.date || new Date().toISOString().split('T')[0],
+        average: liveAverage,
+       
       }
 
       const res = await fetch("/api/conning", {
@@ -233,58 +256,64 @@ export default function ConningPage() {
     }
   }
 
+
+  const handleMachineChange = (value: string) => {
+    setSelectedMachine(value)
+  }
   const handleYarnChange = (value: string) => {
     setSelectedYarn(value)
-    setYarnForm((prev) => ({
-      ...prev,
-      yarn_type: value
-    }))
+
+    setYarnForm({
+      yarn_type: value,
+      category: "",
+      color: "",
+      tpm: "",
+      total_output_weight: ""
+    })
+
+    setSelectedColor("")
     setSelectedTpm("")
     setSelectedYarnWeight("")
   }
-
-  const handleTpmChange = (value: string) => {
-    setSelectedTpm(value)
-    setYarnForm((prev) => ({
-      ...prev,
-      tpm: value
-    }))
-    const yarn = totalEntries.find(
-      (y) => y.yarn_type === selectedYarn && y.tpm === value
-    )
-
-    if (yarn) {
+  // const handleTpmChange = () => {
+  //   console.log("Selected Yarn:", selectedYarn)
+  //   console.log("Selected Category:", yarnForm.category)
+  //   console.log("Selected Color:", selectedColor)
 
 
-      setSelectedYarnWeight(yarn.total_output_weight.toString())
-    } else {
-      setSelectedYarnWeight("")
-    }
-  }
+  //   if (yarn) {
+  //     setSelectedTpm(yarn.tpm)
+  //     setSelectedYarnWeight(yarn.total_output_weight.toString())
+  //   } else {
+  //     setSelectedYarnWeight("")
+  //   }
+  // }
   const handleColorChange = (value: string) => {
+    // handleTpmChange();
     setSelectedColor(value)
-    setYarnForm((prev) => ({
+
+    setYarnForm(prev => ({
       ...prev,
       color: value
     }))
     const yarn = totalEntries.find(
-      (y) => y.yarn_type === selectedYarn && y.tpm === selectedTpm && y.color === value
+      (y) =>
+        y.yarn_type === (yarnForm.yarn_type || selectedYarn) &&
+        y.category === yarnForm.category &&
+        y.color === value
     )
-
-    console.log("Finding yarn with:", {
-      yarn_type: selectedYarn,
-      tpm: selectedTpm,
-      color: value,
-      total_output_weight: yarn?.total_output_weight
-    })
     if (yarn) {
-      setYarnForm((prev) => ({
+      setYarnForm(prev => ({
         ...prev,
         total_output_weight: yarn.total_output_weight.toString()
       }))
       setSelectedYarnWeight(yarn.total_output_weight.toString())
     } else {
       setSelectedYarnWeight("")
+      setYarnForm(prev => ({
+        ...prev,
+        total_output_weight: ""
+      }))
     }
   }
   const columns = [
@@ -294,11 +323,18 @@ export default function ConningPage() {
       label: 'Machine ID',
       render: (value: string) => {
         const machine = machines.find((m) => m.id === value)
-        return machine ? `${machine.machine_number}` : value
+
+        if (!machine) return value
+
+        // ✅ extract only number
+        const number = machine.machine_number.replace(/\D/g, '')
+
+        return number || machine.machine_number
       },
     },
-    { key: 'tpm', label: 'TPM' },
+    // { key: 'tpm', label: 'TPM' },
     { key: 'yarn_type', label: 'Yarn Type' },
+    { key: 'category', label: 'Category' },
     { key: 'color', label: 'Color' },
     { key: 'cones_size', label: 'Cone Size' },
     { key: 'cones', label: 'Cone Count' },
@@ -307,6 +343,7 @@ export default function ConningPage() {
       label: 'Weight (kg)',
       render: (value: string) => parseFloat(value).toFixed(2),
     },
+    { key: 'average', label: 'Average(%)' },
   ]
 
   return (
@@ -323,7 +360,7 @@ export default function ConningPage() {
           className="bg-primary/80 hover:bg-primary/60 text-primary-foreground gap-2"
         >
           <Weight size={16} />
-          Check Stock
+          Status check
         </Button>
       </div>
       <DataTable
@@ -333,6 +370,7 @@ export default function ConningPage() {
         onAddNew={handleAddNew}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        isLoading={loading}
         emptyState="No conning entries yet. Click 'Add New' to create one."
       />
 
@@ -344,7 +382,6 @@ export default function ConningPage() {
           {
             name: 'yarn_type',
             label: 'Type',
-            // value: yarnForm.yarn_type,
             type: 'select',
             placeholder: 'Select yarn type',
             onChange: handleYarnChange,
@@ -353,19 +390,34 @@ export default function ConningPage() {
               label: yarn
             }))
           },
+
+          // ================= FIX: TPM → CATEGORY =================
           {
-            name: 'tpm',
-            label: 'TPM',
+            name: 'category',
+            label: 'Category',
             type: 'select',
-            placeholder: 'Select TPM',
-            onChange: handleTpmChange,
-            options: [...new Set(
-              totalEntries
-                .filter(e => yarnForm.yarn_type)
-                .map(e => e.tpm)
-            )].map(tpm => ({
-              value: tpm,
-              label: tpm
+            placeholder: 'Select Category',
+            onChange: (value: string) => {
+              setYarnForm(prev => ({
+                ...prev,
+                category: value
+              }))
+              setSelectedTpm("")
+              setSelectedColor("")
+            },
+
+            options: [
+              ...new Set(
+                totalEntries
+                  .filter(e =>
+                    e.yarn_type === yarnForm.yarn_type
+                  )
+                  .map(e => e.category)
+                  .filter(Boolean)
+              )
+            ].map(cat => ({
+              value: cat,
+              label: cat
             }))
           },
 
@@ -378,15 +430,10 @@ export default function ConningPage() {
             options: [
               ...new Set(
                 totalEntries
-                  .filter(e => {
-                    const yarn = (yarnForm.yarn_type).trim()
-                    const tpm = String(yarnForm.tpm).trim()
-
-                    return (
-                      e.yarn_type?.trim() === yarn &&
-                      String(e.tpm).trim() === tpm
-                    )
-                  })
+                  .filter(e =>
+                    e.yarn_type === yarnForm.yarn_type &&
+                    e.category === yarnForm.category
+                  )
                   .map(e => e.color)
               )
             ].map(color => ({
@@ -394,11 +441,11 @@ export default function ConningPage() {
               label: color
             }))
           },
+
           {
             name: 'total_output_weight',
             label: 'Total Weight',
             type: 'text',
-            // value: selectedYarnWeight,
             placeholder: '0.00 KG',
             readOnly: true,
             disabled: true
@@ -409,9 +456,8 @@ export default function ConningPage() {
         onClose={() => setIsYarnModalOpen(false)}
       />
 
-
       <FormModal
-        key={`${selectedYarn}-${selectedTpm}-${selectedColor}`}  // ✅ FORCE RERENDER
+        // ✅ FORCE RERENDER
         isOpen={isModalOpen}
         title={editingEntry ? 'Edit Conning Entry' : 'Add New Conning Entry'}
         fields={[
@@ -422,65 +468,99 @@ export default function ConningPage() {
             label: 'Machine ID',
             type: 'select',
             placeholder: 'Select Machine',
+
             required: true,
+            onChange: handleMachineChange,
             options: machines.map((m) => ({
-              value: m.id,
+              value: m.machine_number,
               label: `${m.machine_number}`,
             })),
           },
+
           {
             name: 'yarn_type',
             label: 'Type',
-            value: selectedYarn || editingEntry?.yarn_type || "",
             type: 'select',
             placeholder: 'Select yarn type',
-            onChange: handleYarnChange,
+            onChange: (value: string) => {
+              setSelectedYarn(value)
+
+              setYarnForm({
+                yarn_type: value,
+                category: "",
+                color: "",
+                tpm: "",
+                total_output_weight: ""
+              })
+
+              setSelectedColor("")
+              setSelectedTpm("")
+            },
             options: [...new Set(totalEntries.map(item => item.yarn_type))].map(yarn => ({
               value: yarn,
               label: yarn
             }))
           },
           {
-            name: 'tpm',
-            label: 'TPM',
+            name: 'category',
+            label: 'Category',
             type: 'select',
-            value: selectedTpm || editingEntry?.tpm || "",
-            placeholder: 'Select TPM',
-            onChange: handleTpmChange,
+            placeholder: 'Select Category',
+
+            onChange: (value: string) => {
+              setYarnForm(prev => ({
+                ...prev,
+                category: value,
+                color: "" // reset color only
+              }))
+
+              setSelectedColor("")
+            },
             options: [
               ...new Set(
                 totalEntries
                   .filter(e =>
-                    (selectedYarn || editingEntry?.yarn_type)
-                      ? e.yarn_type === (selectedYarn || editingEntry?.yarn_type)
-                      : true
+                    e.yarn_type === (selectedYarn || editingEntry?.yarn_type)
                   )
-                  .map(e => e.tpm)
+                  .map(e => e.category)
+                  .filter(Boolean)
               )
-            ].map(tpm => ({
-              value: tpm,
-              label: tpm
+            ].map(cat => ({
+              value: cat,
+              label: cat
             }))
           },
           {
             name: 'color',
             label: 'Color',
             type: 'select',
-            value: selectedColor || editingEntry?.color || "",
+
             placeholder: 'Select Color',
-            onChange: handleColorChange,
+            onChange: (value: string) => {
+              setSelectedColor(value)
+
+              setYarnForm(prev => ({
+                ...prev,
+                color: value
+              }))
+              const yarn = totalEntries.find(
+                (y) =>
+                  y.yarn_type === (yarnForm.yarn_type || selectedYarn) &&
+                  y.category === yarnForm.category &&
+                  y.color === value
+              )
+              console.log("Found matching yarn:::::::::: ", yarn) // Debug log
+              if (yarn) {
+                setSelectedTpm(yarn.tpm)
+              }
+            },
             options: [
               ...new Set(
                 totalEntries
-                  .filter(e => {
-                    const yarn = (selectedYarn || editingEntry?.yarn_type || "").trim()
-                    const tpm = String(selectedTpm || editingEntry?.tpm || "").trim()
-
-                    return (
-                      e.yarn_type?.trim() === yarn &&
-                      String(e.tpm).trim() === tpm
-                    )
-                  })
+                  .filter(e =>
+                    e.yarn_type === selectedYarn &&
+                    e.category === yarnForm.category
+                  )
                   .map(e => e.color)
               )
             ].map(color => ({
@@ -491,16 +571,24 @@ export default function ConningPage() {
           {
             name: 'cones_size',
             label: 'Cone Size',
-            type: 'select',
-            placeholder: 'Select Cone Size',
+            type: 'text',
+            placeholder: 'Enter Cone Size',
             required: true,
-            options: [
-              { value: '1500', label: '1500' },
-              { value: '3000', label: '3000' }
-            ]
           },
-          { name: 'weight', label: 'Total Weight (kg)', type: 'number', placeholder: '0.00', required: true },
-          { name: 'cones', label: 'Number of Cones', type: 'number', placeholder: '0', required: true },
+          {
+            name: 'weight',
+            label: 'Total Weight (kg)',
+            type: 'number',
+            placeholder: '0.00',
+            required: true,
+          },
+          {
+            name: 'cones',
+            label: 'Number of Cones',
+            type: 'number',
+            placeholder: '0',
+            required: true,
+          },
 
         ]}
         initialData={editingEntry || undefined}

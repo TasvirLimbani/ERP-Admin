@@ -9,6 +9,7 @@ export interface YarnEntry {
   created_at: string
   weight: string
   yarn_type: string
+  yarn_sub_type: string
 }
 
 export interface YarnTotalEntry {
@@ -38,6 +39,8 @@ export interface DyeingEntry  {
   id: string
   machine_id: string
   yarn_type: string
+  yarn_sub_type: string
+   category?: string 
   company_id: string
   admin_id: string
   color: string
@@ -54,8 +57,10 @@ export interface ConningEntry {
   machine_id: string
   tpm: any
   yarn_type: string
+  category: string
   color: string
   date: string
+  average: string
   weight: any
   cones: any
   cones_size: string
@@ -69,6 +74,7 @@ export interface PackingEntry {
   tpm: any
   cones: string
   color: any
+  category: string
   cone_size: string
   box: any
   company_id: string
@@ -76,39 +82,55 @@ export interface PackingEntry {
   machine_id: string
 }
 
-export interface StockEntry {
+
+export interface SellingEntry {
   id: string
   tpm: string
   yarn_type: string
- color: string
- dyeing_weight: string
- coning_weight: string
- remaining_weight: string
- total_cones: string
- packed_cones: string
- remaining_cones: string
- total_box: string
- total_extra_pis: string
+  color: string
+  cone_size: string
+  box: string
+  cones: string
+  extra_cones: string
+  total_cones: string
+  created_at: string
+}
+// export interface StockEntry {
+//   id: string
+//   tpm: string
+//   yarn_type: string
+//  color: string
+//  dyeing_weight: string
+//  coning_weight: string
+//  remaining_weight: string
+//  total_cones: string
+//  packed_cones: string
+//  remaining_cones: string
+//  total_box: string
+//  total_extra_pis: string
+// }
+
+export interface ConeUnpacked {
+  cone_size: number
+  cones: number
 }
 
-export type ManagerEntry = {
-  manager_id?: string
-  name: string
-  email: string
-  password?: string
-  department: string
-  company_id: string
-  admin_id: string
+export interface ConePacked {
+  cone_size: number
+  box: number
+  extra: number
 }
 
-export interface MachineEntry {
-  id?: string
-  company_id: string
-  machine_number: string
-  machine_type: string
-  status: 'active' | 'inactive'
-  created_at?: string
+export interface StockEntry {
+  id: string
+  yarn_type: string
+  tpm: string
+  color: string
+  category?: string
+  unpacked_cones: any[]
+  packed_cones_size: any[]
 }
+
 
 export type DataEntry = 
   | YarnEntry 
