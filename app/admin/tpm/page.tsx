@@ -173,6 +173,7 @@ function OutputTablePagination({ refreshTrigger }: { refreshTrigger: number }) {
               <TableHead className="text-slate-600 dark:text-slate-400">TPM</TableHead>
               <TableHead className="text-slate-600 dark:text-slate-400">Input Weight</TableHead>
               <TableHead className="text-slate-600 dark:text-slate-400">Output Weight</TableHead>
+              <TableHead className="text-slate-600 dark:text-slate-400 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -185,6 +186,16 @@ function OutputTablePagination({ refreshTrigger }: { refreshTrigger: number }) {
                 <TableCell>{item.tpm}</TableCell>
                 <TableCell>{item.input_weight}</TableCell>
                 <TableCell>{item.output_weight}</TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <button className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
+                      <Edit2 size={16} />
+                    </button>
+                    <button className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
+                      <Trash2 size={16} className="text-red-600" />
+                    </button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
