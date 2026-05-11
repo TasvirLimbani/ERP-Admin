@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, Edit2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -113,7 +113,7 @@ function InputTablePagination({ refreshTrigger, onEditItem, onDeleteItem }: { re
   )
 }
 
-function OutputTablePagination({ refreshTrigger }: { refreshTrigger: number }) {
+function OutputTablePagination({ refreshTrigger, onEditItem, onDeleteItem }: { refreshTrigger: number, onEditItem?: (item: any) => void, onDeleteItem?: (item: any) => void }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -131,11 +131,18 @@ function OutputTablePagination({ refreshTrigger }: { refreshTrigger: number }) {
         }
       })
       const result = await res.json()
+      const resultList: any[] = Array.isArray(result?.data)
+        ? result.data
+        : Array.isArray(result?.data?.list)
+          ? result.data.list
+          : []
 
-      if (result.status && result.data && result.data.list) {
-        setData(result.data.list)
-        if (result.data.pagination) {
+      if (result.status && resultList.length >= 0) {
+        setData(resultList)
+        if (result?.data?.pagination) {
           setTotalPages(result.data.pagination.total_pages || 1)
+        } else {
+          setTotalPages(1)
         }
       } else {
         setData([])
@@ -177,8 +184,8 @@ function OutputTablePagination({ refreshTrigger }: { refreshTrigger: number }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((item) => (
-              <TableRow key={item.id} className="border-slate-200 dark:border-slate-800">
+            {data.map((item, index) => (
+              <TableRow key={item.id || `${item.batch_id}-${item.tpm}-${item.yarn_type}-${item.yarn_sub_type}-${index}`} className="border-slate-200 dark:border-slate-800">
                 <TableCell className="font-medium">{item.machine_no}</TableCell>
                 <TableCell>{item.batch_id}</TableCell>
                 <TableCell>{item.yarn_type}</TableCell>
@@ -188,10 +195,10 @@ function OutputTablePagination({ refreshTrigger }: { refreshTrigger: number }) {
                 <TableCell>{item.output_weight}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    <button className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <button onClick={() => onEditItem?.(item)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
                       <Edit2 size={16} />
                     </button>
-                    <button className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <button onClick={() => onDeleteItem?.(item)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
                       <Trash2 size={16} className="text-red-600" />
                     </button>
                   </div>
@@ -218,30 +225,75 @@ function OutputTablePagination({ refreshTrigger }: { refreshTrigger: number }) {
   )
 }
 
-function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { type: 'input' | 'output', onSubmitSuccess?: () => void, editItem?: any, onEditItemChange?: (item: any | null) => void }) {
+function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange, refreshTrigger = 0 }: { type: 'input' | 'output', onSubmitSuccess?: () => void, editItem?: any, onEditItemChange?: (item: any | null) => void, refreshTrigger?: number }) {
   const [open, setOpen] = useState(false)
-  const [formData, setFormData] = useState({ batch_id: '', yarn_type: '', yarn_sub_type: '', weight: '' })
+  const [formData, setFormData] = useState({
+    machine_no: '',
+    batch_id: '',
+    yarn_type: '',
+    yarn_sub_type: '',
+    tpm: '',
+    input_weight: '',
+    output_weight: '',
+    weight: ''
+  })
   const [yarnData, setYarnData] = useState<any[]>([])
-  const [batchOptions, setBatchOptions] = useState<string[]>([])
+  const [outputData, setOutputData] = useState<any[]>([])
   const [yarnTypeOptions, setYarnTypeOptions] = useState<string[]>([])
   const [yarnSubTypeOptions, setYarnSubTypeOptions] = useState<string[]>([])
+  const [batchOptions, setBatchOptions] = useState<string[]>([])
+  const [machineOptions, setMachineOptions] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [companyId, setCompanyId] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
+  const generatedBatchIds = useRef<Set<string>>(new Set())
   const { toast } = useToast()
+  const isEditing = !!(editItem && editItem.id)
+
+  const generateUniqueBatchId = () => {
+    const existingBatchIds = new Set<string>([
+      ...yarnData.map((item: any) => String(item.batch_id)),
+      ...generatedBatchIds.current
+    ])
+
+    let nextBatchId = ''
+    do {
+      // Keep the ID in the B-xxxx style while adding entropy for collision safety.
+      const timePart = Date.now().toString().slice(-6)
+      const randomPart = Math.floor(Math.random() * 10).toString()
+      nextBatchId = `B-${timePart}${randomPart}`
+    } while (existingBatchIds.has(nextBatchId))
+
+    generatedBatchIds.current.add(nextBatchId)
+    return nextBatchId
+  }
 
   // Open dialog when editItem changes
   useEffect(() => {
     if (editItem) {
-      setFormData({
-        batch_id: editItem.batch_id || '',
-        yarn_type: editItem.yarn_type || '',
-        yarn_sub_type: editItem.yarn_sub_type || '',
-        weight: String(editItem.weight) || ''
-      })
+      if (type === 'input') {
+        setFormData((prev) => ({
+          ...prev,
+          batch_id: editItem.batch_id || '',
+          yarn_type: editItem.yarn_type || '',
+          yarn_sub_type: editItem.yarn_sub_type || '',
+          weight: String(editItem.weight) || ''
+        }))
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          machine_no: editItem.machine_no || '',
+          batch_id: editItem.batch_id || '',
+          yarn_type: editItem.yarn_type || '',
+          yarn_sub_type: editItem.yarn_sub_type || '',
+          tpm: String(editItem.tpm) || '',
+          input_weight: String(editItem.input_weight) || '',
+          output_weight: String(editItem.output_weight) || ''
+        }))
+      }
       setOpen(true)
     }
-  }, [editItem])
+  }, [editItem, type])
 
   const fetchYarnData = async (company_id: string) => {
     try {
@@ -251,23 +303,79 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { type: 
 
       if (result.status && result.data) {
         // Filter out items with remaining_weight of 0
-        const filteredData = result.data.filter((item: any) => item.remaining_weight > 0)
+        const resultList: any[] = Array.isArray(result.data) ? result.data : []
+        const filteredData = resultList.filter((item: any) => item.remaining_weight > 0)
 
         // Store filtered data
         setYarnData(filteredData)
 
-        // Extract unique batch IDs
-        const batchIds = [...new Set(filteredData.map((item: any) => item.batch_id))]
-        setBatchOptions(batchIds)
-
-        // Clear other dropdowns initially
-        setYarnTypeOptions([])
+        // Yarn type is now selected directly without batch selection.
+        const yarnTypes: string[] = [...new Set(filteredData.map((item: any) => String(item.yarn_type)))]
+        setYarnTypeOptions(yarnTypes)
         setYarnSubTypeOptions([])
       }
     } catch (error) {
       console.error('Error fetching yarn data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchOutputData = async (company_id: string) => {
+    try {
+      setLoading(true)
+      // Reset state immediately before fetching
+      setOutputData([])
+      setBatchOptions([])
+      setYarnTypeOptions([])
+      setYarnSubTypeOptions([])
+
+      const res = await fetch(`/api/tpm/outputTpm/stock?company_id=${company_id}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      })
+      const result = await res.json()
+      const resultList: any[] = Array.isArray(result?.data)
+        ? result.data
+        : Array.isArray(result?.data?.list)
+          ? result.data.list
+          : []
+
+      if (result.status && resultList.length >= 0) {
+        const filteredData = resultList.filter((item: any) => String(item?.batch_id || '').trim() !== '')
+        setOutputData(filteredData)
+        setBatchOptions([...new Set(filteredData.map((item: any) => String(item.batch_id)))])
+      } else {
+        setOutputData([])
+        setBatchOptions([])
+      }
+    } catch (error) {
+      console.error('Error fetching output data:', error)
+      setOutputData([])
+      setBatchOptions([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchMachineData = async (company_id: string) => {
+    try {
+      const res = await fetch(`/api/machines?company_id=${company_id}`)
+      const result = await res.json()
+
+      const machineList: any[] = Array.isArray(result?.data) ? result.data : []
+      const filteredMachines = machineList
+        .filter((item: any) => item.status === 'active' && item.machine_type === 'Twisting Machine')
+        .map((item: any) => String(item.machine_number))
+
+      setMachineOptions([...new Set(filteredMachines)])
+    } catch (error) {
+      console.error('Error fetching machine data:', error)
+      setMachineOptions([])
     }
   }
 
@@ -283,67 +391,143 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { type: 
   // Populate dropdown options when editing
   useEffect(() => {
     if (editItem && yarnData.length > 0) {
-      // Populate batch options
-      const batchIds = [...new Set(yarnData.map((item: any) => item.batch_id))]
-      setBatchOptions(batchIds)
-
-      // Populate yarn type options for the selected batch
-      const filteredByBatch = yarnData.filter((item: any) => item.batch_id === editItem.batch_id)
-      const yarnTypes = [...new Set(filteredByBatch.map((item: any) => item.yarn_type))]
+      // Populate yarn type options.
+      const yarnTypes: string[] = [...new Set(yarnData.map((item: any) => String(item.yarn_type)))]
       setYarnTypeOptions(yarnTypes)
 
-      // Populate yarn sub type options for the selected batch and yarn type
-      const filteredByBatchAndType = yarnData.filter(
-        (item: any) => item.batch_id === editItem.batch_id && item.yarn_type === editItem.yarn_type
-      )
-      const yarnSubTypes = [...new Set(filteredByBatchAndType.map((item: any) => item.yarn_sub_type))]
+      // Populate yarn sub type options for the selected yarn type.
+      const filteredByType = yarnData.filter((item: any) => item.yarn_type === editItem.yarn_type)
+      const yarnSubTypes: string[] = [...new Set(filteredByType.map((item: any) => String(item.yarn_sub_type)))]
       setYarnSubTypeOptions(yarnSubTypes)
     }
   }, [editItem, yarnData])
 
+  useEffect(() => {
+    if (editItem && outputData.length > 0 && type === 'output') {
+      const batchRows = outputData.filter((item: any) => String(item.batch_id) === String(editItem.batch_id))
+      const yarnTypes: string[] = [...new Set(batchRows.map((item: any) => String(item.yarn_type)))]
+      const yarnSubTypes: string[] = [...new Set(batchRows
+        .filter((item: any) => String(item.yarn_type) === String(editItem.yarn_type))
+        .map((item: any) => String(item.yarn_sub_type)))]
+
+      setBatchOptions([...new Set(outputData.map((item: any) => String(item.batch_id)))])
+      setYarnTypeOptions(yarnTypes)
+      setYarnSubTypeOptions(yarnSubTypes)
+    }
+  }, [editItem, outputData, type])
+
   // Fetch data when form opens and company ID is available
   useEffect(() => {
     if (open && companyId) {
-      fetchYarnData(companyId)
-    }
-  }, [open, companyId])
-
-  // Update yarn types when batch_id changes
-  useEffect(() => {
-    if (formData.batch_id && yarnData.length > 0) {
-      const filteredByBatch = yarnData.filter((item: any) => item.batch_id === formData.batch_id)
-      const yarnTypes = [...new Set(filteredByBatch.map((item: any) => item.yarn_type))]
-      setYarnTypeOptions(yarnTypes)
-
-      // Only reset yarn_type and yarn_sub_type if we're not editing
-      if (!editItem) {
-        setFormData((prev) => ({ ...prev, yarn_type: '', yarn_sub_type: '' }))
-        setYarnSubTypeOptions([])
+      if (type === 'input') {
+        fetchYarnData(companyId)
+      } else {
+        fetchOutputData(companyId)
+        fetchMachineData(companyId)
       }
     }
-  }, [formData.batch_id, yarnData, editItem])
+  }, [open, companyId, type])
+
+  // For editing output: ensure dropdown options show the current values
+  useEffect(() => {
+    if (editItem && type === 'output' && isEditing) {
+      // Ensure batch option is available
+      setBatchOptions((prev) => {
+        const set = new Set(prev)
+        set.add(String(editItem.batch_id))
+        return Array.from(set)
+      })
+      // Ensure yarn types option is available
+      setYarnTypeOptions((prev) => {
+        const set = new Set(prev)
+        set.add(String(editItem.yarn_type))
+        return Array.from(set)
+      })
+      // Ensure yarn sub types option is available
+      setYarnSubTypeOptions((prev) => {
+        const set = new Set(prev)
+        set.add(String(editItem.yarn_sub_type))
+        return Array.from(set)
+      })
+    }
+  }, [editItem, type])
+
+  // Refetch output data when table refreshes (after successful submit/delete)
+  useEffect(() => {
+    if (open && companyId && type === 'output') {
+      fetchOutputData(companyId)
+    }
+  }, [open, companyId, type, refreshTrigger])
 
   // Update yarn sub types when yarn_type changes
   useEffect(() => {
-    if (formData.batch_id && formData.yarn_type && yarnData.length > 0) {
-      const filteredByBatchAndType = yarnData.filter(
-        (item: any) => item.batch_id === formData.batch_id && item.yarn_type === formData.yarn_type
-      )
-      const yarnSubTypes = [...new Set(filteredByBatchAndType.map((item: any) => item.yarn_sub_type))]
+    if (formData.yarn_type && yarnData.length > 0) {
+      const filteredByType = yarnData.filter((item: any) => item.yarn_type === formData.yarn_type)
+      const yarnSubTypes: string[] = [...new Set(filteredByType.map((item: any) => String(item.yarn_sub_type)))]
       setYarnSubTypeOptions(yarnSubTypes)
 
       // Only reset yarn_sub_type if we're not editing
       if (!editItem) {
         setFormData((prev) => ({ ...prev, yarn_sub_type: '' }))
       }
+    } else if (!formData.yarn_type) {
+      setYarnSubTypeOptions([])
     }
-  }, [formData.batch_id, formData.yarn_type, yarnData, editItem])
+  }, [formData.yarn_type, yarnData, editItem])
+
+  useEffect(() => {
+    if (type !== 'output') {
+      return
+    }
+
+    if (!formData.batch_id) {
+      setYarnTypeOptions([])
+      setYarnSubTypeOptions([])
+      if (!editItem) {
+        setFormData((prev) => ({ ...prev, yarn_type: '', yarn_sub_type: '' }))
+      }
+      return
+    }
+
+    const batchRows = outputData.filter((item: any) => String(item.batch_id) === String(formData.batch_id))
+    const yarnTypes: string[] = [...new Set(batchRows.map((item: any) => String(item.yarn_type)))]
+    setYarnTypeOptions(yarnTypes)
+
+    if (!isEditing && !batchRows.some((item: any) => String(item.yarn_type) === String(formData.yarn_type))) {
+      setFormData((prev) => ({ ...prev, yarn_type: '', yarn_sub_type: '' }))
+      setYarnSubTypeOptions([])
+    }
+  }, [formData.batch_id, outputData, type, editItem, isEditing])
+
+  useEffect(() => {
+    if (type !== 'output') {
+      return
+    }
+
+    if (formData.batch_id && formData.yarn_type) {
+      const filteredRows = outputData.filter((item: any) =>
+        String(item.batch_id) === String(formData.batch_id) &&
+        String(item.yarn_type) === String(formData.yarn_type)
+      )
+
+      const yarnSubTypes: string[] = [...new Set(filteredRows.map((item: any) => String(item.yarn_sub_type)))]
+      setYarnSubTypeOptions(yarnSubTypes)
+
+      if (!isEditing && !filteredRows.some((item: any) => String(item.yarn_sub_type) === String(formData.yarn_sub_type))) {
+        setFormData((prev) => ({ ...prev, yarn_sub_type: '' }))
+      }
+    } else {
+      setYarnSubTypeOptions([])
+    }
+  }, [formData.batch_id, formData.yarn_type, outputData, type, isEditing])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    const isInputForm = type === 'input'
+
     // Validate all fields are filled
-    if (!formData.batch_id || !formData.yarn_type || !formData.yarn_sub_type || !formData.weight) {
+    if (isInputForm && (!formData.yarn_type || !formData.yarn_sub_type || !formData.weight)) {
       toast({
         title: "Error",
         description: "Please fill all fields",
@@ -352,28 +536,100 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { type: 
       return
     }
 
+    // For output form: during edit, only require editable fields (input_weight, output_weight)
+    // During add, require all fields
+    if (!isInputForm) {
+      if (isEditing) {
+        // Edit mode: only validate editable fields
+        if (!formData.input_weight || !formData.output_weight) {
+          toast({
+            title: "Error",
+            description: "Please fill input weight and output weight",
+            variant: "destructive"
+          })
+          return
+        }
+      } else {
+        // Add mode: validate all fields
+        if (!formData.machine_no || !formData.batch_id || !formData.yarn_type || !formData.yarn_sub_type || !formData.tpm || !formData.input_weight || !formData.output_weight) {
+          toast({
+            title: "Error",
+            description: "Please fill all output fields",
+            variant: "destructive"
+          })
+          return
+        }
+      }
+    }
+
     // Validate weight is a positive number
     const weightNum = parseFloat(formData.weight)
-    if (isNaN(weightNum) || weightNum <= 0) {
-      toast({
-        title: "Error",
-        description: "Weight must be a positive number",
-        variant: "destructive"
-      })
-      return
+    const tpmNum = parseFloat(formData.tpm)
+    const inputWeightNum = parseFloat(formData.input_weight)
+    const outputWeightNum = parseFloat(formData.output_weight)
+
+    if (isInputForm) {
+      if (isNaN(weightNum) || weightNum <= 0) {
+        toast({
+          title: "Error",
+          description: "Weight must be a positive number",
+          variant: "destructive"
+        })
+        return
+      }
+    } else {
+      // For output: validate numeric fields
+      if (isEditing) {
+        // Edit mode: only validate input and output weights
+        if (isNaN(inputWeightNum) || inputWeightNum <= 0 || isNaN(outputWeightNum) || outputWeightNum <= 0) {
+          toast({
+            title: "Error",
+            description: "Input weight and output weight must be positive numbers",
+            variant: "destructive"
+          })
+          return
+        }
+      } else {
+        // Add mode: validate all numeric fields
+        if (isNaN(tpmNum) || tpmNum <= 0 || isNaN(inputWeightNum) || inputWeightNum <= 0 || isNaN(outputWeightNum) || outputWeightNum <= 0) {
+          toast({
+            title: "Error",
+            description: "TPM, input weight and output weight must be positive numbers",
+            variant: "destructive"
+          })
+          return
+        }
+      }
     }
 
     try {
       setSubmitting(true)
 
       const isEditing = editItem && editItem.id
+      const payloadBatchId = isInputForm && !isEditing ? generateUniqueBatchId() : formData.batch_id
 
-      let payload: any = {
-        company_id: parseInt(companyId),
-        batch_id: formData.batch_id,
-        yarn_type: formData.yarn_type,
-        yarn_sub_type: formData.yarn_sub_type,
-        weight: weightNum
+      let payload: any
+      if (isInputForm) {
+        payload = {
+          company_id: parseInt(companyId),
+          batch_id: payloadBatchId,
+          yarn_type: formData.yarn_type,
+          yarn_sub_type: formData.yarn_sub_type,
+          weight: weightNum
+        }
+      } else {
+        const user = JSON.parse(localStorage.getItem('user') || '{}')
+        payload = {
+          company_id: parseInt(companyId),
+          admin_id: user.id || editItem?.admin_id,
+          machine_no: formData.machine_no || editItem?.machine_no || '',
+          batch_id: formData.batch_id || editItem?.batch_id || '',
+          yarn_type: formData.yarn_type || editItem?.yarn_type || '',
+          yarn_sub_type: formData.yarn_sub_type || editItem?.yarn_sub_type || '',
+          tpm: tpmNum || Number(editItem?.tpm) || 0,
+          input_weight: inputWeightNum,
+          output_weight: outputWeightNum
+        }
       }
 
       // When editing, add id to payload
@@ -381,7 +637,7 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { type: 
         payload.id = editItem.id
       }
 
-      const url = '/api/tpm/inputYarn'
+      const url = isInputForm ? '/api/tpm/inputYarn' : '/api/tpm/outputTpm'
       const method = isEditing ? 'PUT' : 'POST'
 
       const res = await fetch(url, {
@@ -400,11 +656,22 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { type: 
       if (isSuccess) {
         toast({
           title: "Success",
-          description: isEditing ? "Input task updated successfully" : "Input task added successfully",
+          description: isEditing
+            ? (isInputForm ? "Input task updated successfully" : "Output task updated successfully")
+            : (isInputForm ? "Input task added successfully" : "Output task added successfully"),
         })
 
         // Reset form and close dialog
-        setFormData({ batch_id: '', yarn_type: '', yarn_sub_type: '', weight: '' })
+        setFormData({
+          machine_no: '',
+          batch_id: '',
+          yarn_type: '',
+          yarn_sub_type: '',
+          tpm: '',
+          input_weight: '',
+          output_weight: '',
+          weight: ''
+        })
         setOpen(false)
 
         // Clear edit item
@@ -419,7 +686,9 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { type: 
       } else {
         toast({
           title: "Error",
-          description: result.message || (isEditing ? "Failed to update input task" : "Failed to add input task"),
+          description: result.message || (isEditing
+            ? (isInputForm ? "Failed to update input task" : "Failed to update output task")
+            : (isInputForm ? "Failed to add input task" : "Failed to add output task")),
           variant: "destructive"
         })
       }
@@ -436,14 +705,31 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { type: 
   }
 
   const isInput = type === 'input'
-  const isEditing = editItem && editItem.id
   const buttonText = isInput ? 'Add Input Task' : 'Add Output Task'
   const dialogTitle = isEditing ? (isInput ? 'Edit Input TPM Task' : 'Edit Output TPM Task') : (isInput ? 'Add New Input TPM Task' : 'Add New Output TPM Task')
 
   const handleDialogClose = (newOpen: boolean) => {
     setOpen(newOpen)
-    if (!newOpen && onEditItemChange) {
-      onEditItemChange(null)
+    if (!newOpen) {
+      // Clear edit item and reset form data
+      if (onEditItemChange) {
+        onEditItemChange(null)
+      }
+      // For output form, clear dropdowns to force fresh fetch
+      if (type === 'output') {
+        setFormData({
+          machine_no: '',
+          batch_id: '',
+          yarn_type: '',
+          yarn_sub_type: '',
+          tpm: '',
+          input_weight: '',
+          output_weight: '',
+          weight: ''
+        })
+        setYarnTypeOptions([])
+        setYarnSubTypeOptions([])
+      }
     }
   }
 
@@ -458,52 +744,148 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { type: 
             <DialogTitle>{dialogTitle}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Batch ID</Label>
-              <Select value={formData.batch_id} onValueChange={(value) => setFormData({ ...formData, batch_id: value })} disabled={loading || submitting || isEditing}>
-                <SelectTrigger><SelectValue placeholder={loading ? "Loading..." : "Select batch ID"} /></SelectTrigger>
-                <SelectContent>
-                  {batchOptions.map((option) => (
-                    <SelectItem key={option} value={option}>{option}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Yarn Type</Label>
-              <Select value={formData.yarn_type} onValueChange={(value) => setFormData({ ...formData, yarn_type: value })} disabled={loading || !formData.batch_id || submitting || isEditing}>
-                <SelectTrigger><SelectValue placeholder={!formData.batch_id ? "Select batch ID first" : loading ? "Loading..." : "Select yarn type"} /></SelectTrigger>
-                <SelectContent>
-                  {yarnTypeOptions.map((option) => (
-                    <SelectItem key={option} value={option}>{option}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Yarn Sub Type</Label>
-              <Select value={formData.yarn_sub_type} onValueChange={(value) => setFormData({ ...formData, yarn_sub_type: value })} disabled={loading || !formData.yarn_type || submitting || isEditing}>
-                <SelectTrigger><SelectValue placeholder={!formData.yarn_type ? "Select yarn type first" : loading ? "Loading..." : "Select yarn sub type"} /></SelectTrigger>
-                <SelectContent>
-                  {yarnSubTypeOptions.map((option) => (
-                    <SelectItem key={option} value={option}>{option}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Weight</Label>
-              <Input
-                type="number"
-                placeholder="e.g., 10"
-                value={formData.weight}
-                onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                disabled={submitting}
-                step="0.01"
-                min="0"
-                required
-              />
-            </div>
+            {isInput ? (
+              <>
+                <div className="space-y-2">
+                  <Label>Yarn Type</Label>
+                  <Select value={formData.yarn_type} onValueChange={(value) => setFormData({ ...formData, yarn_type: value })} disabled={loading || submitting || isEditing}>
+                    <SelectTrigger><SelectValue placeholder={loading ? "Loading..." : "Select yarn type"} /></SelectTrigger>
+                    <SelectContent>
+                      {yarnTypeOptions.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Yarn Sub Type</Label>
+                  <Select value={formData.yarn_sub_type} onValueChange={(value) => setFormData({ ...formData, yarn_sub_type: value })} disabled={loading || !formData.yarn_type || submitting || isEditing}>
+                    <SelectTrigger><SelectValue placeholder={!formData.yarn_type ? "Select yarn type first" : loading ? "Loading..." : "Select yarn sub type"} /></SelectTrigger>
+                    <SelectContent>
+                      {yarnSubTypeOptions.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Weight</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g., 10"
+                    value={formData.weight}
+                    onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                    disabled={submitting}
+                    step="0.01"
+                    min="0"
+                    required
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Machine No</Label>
+                  <Select value={formData.machine_no} onValueChange={(value) => setFormData({ ...formData, machine_no: value })} disabled={submitting || machineOptions.length === 0 || isEditing}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={machineOptions.length === 0 ? 'No active Twisting Machine found' : 'Select machine number'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {machineOptions.map((machineNo) => (
+                        <SelectItem key={machineNo} value={machineNo}>{machineNo}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Batch ID</Label>
+                  <Select
+                    value={formData.batch_id}
+                    onValueChange={(value) => setFormData({ ...formData, batch_id: value, yarn_type: '', yarn_sub_type: '' })}
+                    disabled={loading || submitting || batchOptions.length === 0 || isEditing}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={batchOptions.length === 0 ? 'No batches available' : 'Select batch id'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isEditing && formData.batch_id && !batchOptions.includes(formData.batch_id) && (
+                        <SelectItem key={formData.batch_id} value={formData.batch_id}>{formData.batch_id}</SelectItem>
+                      )}
+                      {batchOptions.map((batchId) => (
+                        <SelectItem key={batchId} value={batchId}>{batchId}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Yarn Type</Label>
+                  <Select value={formData.yarn_type} onValueChange={(value) => setFormData({ ...formData, yarn_type: value, yarn_sub_type: '' })} disabled={loading || !formData.batch_id || submitting || isEditing}>
+                    <SelectTrigger><SelectValue placeholder={!formData.batch_id ? "Select batch id first" : loading ? "Loading..." : "Select yarn type"} /></SelectTrigger>
+                    <SelectContent>
+                      {isEditing && formData.yarn_type && !yarnTypeOptions.includes(formData.yarn_type) && (
+                        <SelectItem key={formData.yarn_type} value={formData.yarn_type}>{formData.yarn_type}</SelectItem>
+                      )}
+                      {yarnTypeOptions.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Yarn Sub Type</Label>
+                  <Select value={formData.yarn_sub_type} onValueChange={(value) => setFormData({ ...formData, yarn_sub_type: value })} disabled={loading || !formData.yarn_type || submitting || isEditing}>
+                    <SelectTrigger><SelectValue placeholder={!formData.yarn_type ? "Select yarn type first" : loading ? "Loading..." : "Select yarn sub type"} /></SelectTrigger>
+                    <SelectContent>
+                      {isEditing && formData.yarn_sub_type && !yarnSubTypeOptions.includes(formData.yarn_sub_type) && (
+                        <SelectItem key={formData.yarn_sub_type} value={formData.yarn_sub_type}>{formData.yarn_sub_type}</SelectItem>
+                      )}
+                      {yarnSubTypeOptions.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>TPM</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g., 28"
+                    value={formData.tpm}
+                    onChange={(e) => setFormData({ ...formData, tpm: e.target.value })}
+                    disabled={submitting || isEditing}
+                    step="0.01"
+                    min="0"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Input Weight</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g., 10"
+                    value={formData.input_weight}
+                    onChange={(e) => setFormData({ ...formData, input_weight: e.target.value })}
+                    disabled={submitting}
+                    step="0.01"
+                    min="0"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Output Weight</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g., 9.5"
+                    value={formData.output_weight}
+                    onChange={(e) => setFormData({ ...formData, output_weight: e.target.value })}
+                    disabled={submitting}
+                    step="0.01"
+                    min="0"
+                    required
+                  />
+                </div>
+              </>
+            )}
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update" : "Submit")}
             </Button>
@@ -538,8 +920,16 @@ export default function TPMPage() {
 
     setDeleteLoading(true)
     try {
-      const res = await fetch(`/api/tpm/inputYarn?id=${deletingItem.id}`, {
+      const isOutputItem = deletingItem.tpm !== undefined
+      const url = isOutputItem ? '/api/tpm/outputTpm' : '/api/tpm/inputYarn'
+      const itemType = isOutputItem ? 'Output' : 'Input'
+
+      const res = await fetch(url, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: deletingItem.id })
       })
 
       const data = await res.json()
@@ -547,7 +937,7 @@ export default function TPMPage() {
       if (data.status === true || data.status === 1) {
         toast({
           title: "Success",
-          description: "Input task deleted successfully",
+          description: `${itemType} task deleted successfully`,
         })
         setDeletingItem(null)
         // Trigger table refresh
@@ -555,15 +945,15 @@ export default function TPMPage() {
       } else {
         toast({
           title: "Error",
-          description: data.message || 'Failed to delete input task',
+          description: data.message || `Failed to delete ${itemType} task`,
           variant: "destructive"
         })
       }
     } catch (error) {
-      console.error('Error deleting input task:', error)
+      console.error('Error deleting task:', error)
       toast({
         title: "Error",
-        description: "Error deleting input task",
+        description: "Error deleting task",
         variant: "destructive"
       })
     } finally {
@@ -599,9 +989,9 @@ export default function TPMPage() {
         </TabsContent>
         <TabsContent value="output" className="space-y-6">
           <Card className="border-slate-200 p-6 dark:border-slate-800">
-            <TPMForm type="output" />
+            <TPMForm type="output" onSubmitSuccess={handleInputFormSubmit} editItem={editingItem} onEditItemChange={setEditingItem} refreshTrigger={refreshTrigger} />
           </Card>
-          <OutputTablePagination refreshTrigger={refreshTrigger} />
+          <OutputTablePagination refreshTrigger={refreshTrigger} onEditItem={handleEditItem} onDeleteItem={handleDeleteItem} />
         </TabsContent>
       </Tabs>
 
@@ -614,7 +1004,7 @@ export default function TPMPage() {
 
           <div className="space-y-4">
             <p className="text-slate-600 dark:text-slate-400">
-              Are you sure you want to delete input task from <strong>{deletingItem?.batch_id}</strong> (Yarn Type: {deletingItem?.yarn_type})?
+              Are you sure you want to delete {deletingItem?.tpm !== undefined ? 'output' : 'input'} task from <strong>{deletingItem?.batch_id}</strong> (Yarn Type: {deletingItem?.yarn_type})?
             </p>
             <p className="text-sm text-red-600 dark:text-red-400">
               This action cannot be undone.

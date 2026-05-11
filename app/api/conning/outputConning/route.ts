@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// ==========================
+// GET: Output Coning List
+// ==========================
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -7,7 +10,6 @@ export async function GET(req: NextRequest) {
     const company_id = searchParams.get("company_id");
     const current_page = searchParams.get("current_page") || "1";
 
-    // Validate required param
     if (!company_id) {
       return NextResponse.json(
         { status: false, message: "company_id is required" },
@@ -15,26 +17,25 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // External API URL
-    const apiUrl = `http://radheerp.soon.it/api/input_yarn/input_get.php?company_id=${company_id}&current_page=${current_page}`;
+    const apiUrl = `http://radheerp.soon.it/api/output_coning/output_get.php?company_id=${company_id}&current_page=${current_page}`;
 
     const response = await fetch(apiUrl, {
       method: "GET",
-      cache: "no-store", // always fresh data
+      cache: "no-store",
     });
 
     if (!response.ok) {
       return NextResponse.json(
-        { status: false, message: "Failed to fetch input yarn data" },
+        { status: false, message: "Failed to fetch output coning list" },
         { status: response.status }
       );
     }
 
     const data = await response.json();
-
     return NextResponse.json(data, { status: 200 });
+
   } catch (error) {
-    console.error("Input Yarn GET Error:", error);
+    console.error("Output Coning LIST Error:", error);
 
     return NextResponse.json(
       { status: false, message: "Internal Server Error" },
@@ -43,22 +44,45 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// ==========================
+// POST: Output Coning Add
+// ==========================
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const { company_id, batch_id, yarn_type, yarn_sub_type, weight } = body;
+    const {
+      company_id,
+      admin_id,
+      machine_id,
+      yarn_type,
+      yarn_sub_type,
+      color,
+      weight,
+      cones,
+      category,
+      cones_size,
+    } = body;
 
-    // Basic validation
-    if (!company_id || !batch_id || !yarn_type || !yarn_sub_type || !weight) {
+    if (
+      !company_id ||
+      !admin_id ||
+      !machine_id ||
+      !yarn_type ||
+      !yarn_sub_type ||
+      !color ||
+      !weight ||
+      !cones ||
+      !category ||
+      !cones_size
+    ) {
       return NextResponse.json(
         { status: false, message: "All fields are required" },
         { status: 400 }
       );
     }
 
-    // External API URL
-    const apiUrl = "http://radheerp.soon.it/api/input_yarn/input_add.php";
+    const apiUrl = "http://radheerp.soon.it/api/output_coning/output_add.php";
 
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -67,26 +91,31 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         company_id,
-        batch_id,
+        admin_id,
+        machine_id,
         yarn_type,
         yarn_sub_type,
+        color,
         weight,
+        cones,
+        category,
+        cones_size,
       }),
       cache: "no-store",
     });
 
     if (!response.ok) {
       return NextResponse.json(
-        { status: false, message: "Failed to add input yarn" },
+        { status: false, message: "Failed to add output coning" },
         { status: response.status }
       );
     }
 
     const data = await response.json();
-
     return NextResponse.json(data, { status: 200 });
+
   } catch (error) {
-    console.error("Input Yarn ADD Error:", error);
+    console.error("Output Coning ADD Error:", error);
 
     return NextResponse.json(
       { status: false, message: "Internal Server Error" },
@@ -95,8 +124,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-
-// ✅ UPDATE (PUT)
+// ==========================
+// PUT: Output Coning Update
+// ==========================
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
@@ -104,49 +134,71 @@ export async function PUT(req: NextRequest) {
     const {
       id,
       company_id,
-      batch_id,
+      admin_id,
+      machine_id,
       yarn_type,
       yarn_sub_type,
+      color,
       weight,
+      cones,
+      category,
+      cones_size,
     } = body;
 
-    // Validation
-    if (!id) {
+    if (
+      !id ||
+      !company_id ||
+      !admin_id ||
+      !machine_id ||
+      !yarn_type ||
+      !yarn_sub_type ||
+      !color ||
+      !weight ||
+      !cones ||
+      !category ||
+      !cones_size
+    ) {
       return NextResponse.json(
-        { status: false, message: "id is required" },
+        { status: false, message: "All fields including id are required" },
         { status: 400 }
       );
     }
 
-    const apiUrl = "http://radheerp.soon.it/api/input_yarn/input_update.php";
+    const apiUrl = "http://radheerp.soon.it/api/output_coning/output_update.php";
 
     const response = await fetch(apiUrl, {
-      method: "POST", // ⚠️ PHP API uses POST
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         id,
         company_id,
-        batch_id,
+        admin_id,
+        machine_id,
         yarn_type,
         yarn_sub_type,
+        color,
         weight,
+        cones,
+        category,
+        cones_size,
       }),
       cache: "no-store",
     });
 
+    if (!response.ok) {
+      return NextResponse.json(
+        { status: false, message: "Failed to update output coning" },
+        { status: response.status }
+      );
+    }
+
     const data = await response.json();
+    return NextResponse.json(data, { status: 200 });
 
-    // Ensure status field is boolean
-    const responseData = {
-      ...data,
-      status: data.status === true || data.status === 1 || (response.ok && data.status !== false)
-    };
-
-    return NextResponse.json(responseData, { status: response.ok ? 200 : response.status });
   } catch (error) {
-    console.error("UPDATE Error:", error);
+    console.error("Output Coning UPDATE Error:", error);
 
     return NextResponse.json(
       { status: false, message: "Internal Server Error" },
@@ -155,7 +207,9 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// ❌ DELETE
+// ==========================
+// DELETE: Output Coning Delete
+// ==========================
 export async function DELETE(req: NextRequest) {
   try {
     const body = await req.json();
@@ -168,7 +222,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const apiUrl = "http://radheerp.soon.it/api/input_yarn/input_delete.php";
+    const apiUrl = "http://radheerp.soon.it/api/output_coning/output_delete.php";
 
     const response = await fetch(apiUrl, {
       method: "DELETE",
@@ -179,17 +233,18 @@ export async function DELETE(req: NextRequest) {
       cache: "no-store",
     });
 
+    if (!response.ok) {
+      return NextResponse.json(
+        { status: false, message: "Failed to delete output coning" },
+        { status: response.status }
+      );
+    }
+
     const data = await response.json();
+    return NextResponse.json(data, { status: 200 });
 
-    // Ensure status field is boolean
-    const responseData = {
-      ...data,
-      status: data.status === true || data.status === 1 || (response.ok && data.status !== false)
-    };
-
-    return NextResponse.json(responseData, { status: response.ok ? 200 : response.status });
   } catch (error) {
-    console.error("DELETE Error:", error);
+    console.error("Output Coning DELETE Error:", error);
 
     return NextResponse.json(
       { status: false, message: "Internal Server Error" },
