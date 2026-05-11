@@ -379,7 +379,9 @@ export default function YarnPage() {
       const data = await res.json()
 
       if (data.status) {
-        setYarnData(data.data || [])
+        // Ensure data.data is an array
+        const yarnArray = Array.isArray(data.data) ? data.data : []
+        setYarnData(yarnArray)
       } else {
         setError(data.message || 'Failed to fetch yarn data')
       }

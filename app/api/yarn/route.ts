@@ -23,7 +23,12 @@ export async function GET(req: NextRequest) {
 
     const data = await res.json();
 
-    return NextResponse.json(data);
+    // Ensure data.data is always an array
+    return NextResponse.json({
+      status: data.status,
+      message: data.message,
+      data: Array.isArray(data.data.list) ? data.data.list : []
+    });
   } catch (error) {
     return NextResponse.json(
       { status: false, message: "Failed to fetch yarn data" },
