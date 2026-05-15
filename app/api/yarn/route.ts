@@ -5,6 +5,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const company_id = searchParams.get("company_id");
+    const current_page = searchParams.get("current_page") || "1";
 
     if (!company_id) {
       return NextResponse.json(
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
     }
 
     const res = await fetch(
-      `http://radheerp.soon.it/api/raw_yarn/list.php?company_id=${company_id}`,
+      `http://radheerp.soon.it/api/raw_yarn/list.php?company_id=${company_id}&current_page=${current_page}`,
       {
         method: "GET",
         cache: "no-store",
@@ -23,12 +24,7 @@ export async function GET(req: NextRequest) {
 
     const data = await res.json();
 
-    // Ensure data.data is always an array
-    return NextResponse.json({
-      status: data.status,
-      message: data.message,
-      data: Array.isArray(data.data.list) ? data.data.list : []
-    });
+    return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json(
       { status: false, message: "Failed to fetch yarn data" },

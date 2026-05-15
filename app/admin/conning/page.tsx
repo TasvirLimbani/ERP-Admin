@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Edit2, Plus, Trash2 } from 'lucide-react'
+import { Edit2, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -34,23 +34,6 @@ type ConningOutputItem = {
   output_quantity: number
   status: string
 }
-
-const initialInputData: ConningInputItem[] = [
-  { id: 1, batch_name: 'Cone Batch A', date: '2024-01-15', quantity: 120, status: 'Active' },
-  { id: 2, batch_name: 'Cone Batch B', date: '2024-01-16', quantity: 140, status: 'Active' },
-  { id: 3, batch_name: 'Cone Batch C', date: '2024-01-17', quantity: 100, status: 'Winding' },
-  { id: 4, batch_name: 'Cone Batch D', date: '2024-01-18', quantity: 135, status: 'Active' },
-  { id: 5, batch_name: 'Cone Batch E', date: '2024-01-19', quantity: 125, status: 'Active' },
-  { id: 6, batch_name: 'Cone Batch F', date: '2024-01-20', quantity: 115, status: 'Winding' },
-]
-
-const initialOutputData: ConningOutputItem[] = [
-  { id: 1, machine_no: 'M-01', batch_name: 'Cone Batch A', date: '2024-01-15', input_quantity: 120, output_quantity: 118, status: 'Completed' },
-  { id: 2, machine_no: 'M-02', batch_name: 'Cone Batch B', date: '2024-01-16', input_quantity: 140, output_quantity: 138, status: 'Completed' },
-  { id: 3, machine_no: 'M-03', batch_name: 'Cone Batch C', date: '2024-01-17', input_quantity: 100, output_quantity: 98, status: 'Pending' },
-  { id: 4, machine_no: 'M-04', batch_name: 'Cone Batch D', date: '2024-01-18', input_quantity: 135, output_quantity: 133, status: 'Completed' },
-  { id: 5, machine_no: 'M-05', batch_name: 'Cone Batch E', date: '2024-01-19', input_quantity: 125, output_quantity: 123, status: 'Pending' },
-]
 
 function getStatusBadgeClass(status: string) {
   return status === 'Active' || status === 'Completed'
@@ -364,11 +347,14 @@ function ConningForm({
     const fetchStockData = async () => {
       try {
         setLoadingStock(true)
-        const res = await fetch(`/api/conning/inputDyeing/stock?company_id=${companyId}&_t=${Date.now()}`, {
+        const apiEndpoint = isInput
+          ? `/api/conning/inputDyeing/stock?company_id=${companyId}&_t=${Date.now()}`
+          : `/api/conning/outputConning/stock?company_id=${companyId}&_t=${Date.now()}`
+        const res = await fetch(apiEndpoint, {
           cache: 'no-store',
         })
         const result = await res.json()
-        const rows = Array.isArray(result?.data) ? result.data : []
+        const rows = Array.isArray(result?.data?.list) ? result.data.list : Array.isArray(result?.data) ? result.data : []
         setStockData(rows)
       } catch (error) {
         console.error('Error fetching conning stock data:', error)
@@ -807,8 +793,8 @@ function ConningForm({
 }
 
 export default function ConningPage() {
-  const [inputData, setInputData] = useState(initialInputData)
-  const [outputData, setOutputData] = useState(initialOutputData)
+  const [inputData, setInputData] = useState<ConningInputItem[]>([])
+  const [outputData, setOutputData] = useState<ConningOutputItem[]>([])
   const [companyId, setCompanyId] = useState('')
   const [adminId, setAdminId] = useState('')
   const [inputRefreshKey, setInputRefreshKey] = useState(0)
@@ -1091,9 +1077,19 @@ export default function ConningPage() {
       </div>
 
       <Tabs defaultValue="input" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="input">Input</TabsTrigger>
-          <TabsTrigger value="output">Output</TabsTrigger>
+        <TabsList className="mx-auto flex w-full max-w-lg items-center gap-2 rounded-full bg-gradient-to-r from-sky-50 to-sky-100 p-2 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-900">
+          <TabsTrigger value="input" className="flex-1 flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-slate-700 dark:text-slate-200 transition-colors duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg">
+            <div className="flex items-center justify-center gap-3">
+              <ArrowUp size={18} className="text-current" />
+              <span>Input</span>
+            </div>
+          </TabsTrigger>
+          <TabsTrigger value="output" className="flex-1 flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-slate-700 dark:text-slate-200 transition-colors duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg">
+            <div className="flex items-center justify-center gap-3">
+              <ArrowDown size={18} className="text-current" />
+              <span>Output</span>
+            </div>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="input" className="space-y-6">

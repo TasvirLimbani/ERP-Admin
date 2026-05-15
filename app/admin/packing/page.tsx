@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Edit2 } from 'lucide-react'
+import { Plus, Trash2, Edit2, ArrowUp, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -937,9 +937,19 @@ export default function PackingPage() {
         <p className="mt-2 text-slate-600 dark:text-slate-400">Manage packing orders and shipments</p>
       </div>
       <Tabs defaultValue="input" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="input">Input</TabsTrigger>
-          <TabsTrigger value="output">Output</TabsTrigger>
+        <TabsList className="mx-auto flex w-full max-w-lg items-center gap-2 rounded-full bg-gradient-to-r from-sky-50 to-sky-100 p-2 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-900">
+          <TabsTrigger value="input" className="flex-1 flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-slate-700 dark:text-slate-200 transition-colors duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg">
+            <div className="flex items-center justify-center gap-3">
+              <ArrowUp size={18} className="text-current" />
+              <span>Input</span>
+            </div>
+          </TabsTrigger>
+          <TabsTrigger value="output" className="flex-1 flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-slate-700 dark:text-slate-200 transition-colors duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg">
+            <div className="flex items-center justify-center gap-3">
+              <ArrowDown size={18} className="text-current" />
+              <span>Output</span>
+            </div>
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="input" className="space-y-6">
           <Card className="border-slate-200 p-6 dark:border-slate-800">

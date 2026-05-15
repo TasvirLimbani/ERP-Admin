@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, Edit2 } from 'lucide-react'
+import { Plus, Trash2, Edit2, ArrowUp, ArrowDown } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -11,7 +12,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
-import { useToast } from '@/hooks/use-toast'
 
 function InputTablePagination({ refreshTrigger, onEditItem, onDeleteItem }: { refreshTrigger: number, onEditItem?: (item: any) => void, onDeleteItem?: (item: any) => void }) {
   const [currentPage, setCurrentPage] = useState(1)
@@ -247,7 +247,6 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange, refreshTri
   const [companyId, setCompanyId] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
   const generatedBatchIds = useRef<Set<string>>(new Set())
-  const { toast } = useToast()
   const isEditing = !!(editItem && editItem.id)
 
   const generateUniqueBatchId = () => {
@@ -528,11 +527,7 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange, refreshTri
 
     // Validate all fields are filled
     if (isInputForm && (!formData.yarn_type || !formData.yarn_sub_type || !formData.weight)) {
-      toast({
-        title: "Error",
-        description: "Please fill all fields",
-        variant: "destructive"
-      })
+      toast.error('Please fill all fields')
       return
     }
 
@@ -542,21 +537,13 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange, refreshTri
       if (isEditing) {
         // Edit mode: only validate editable fields
         if (!formData.input_weight || !formData.output_weight) {
-          toast({
-            title: "Error",
-            description: "Please fill input weight and output weight",
-            variant: "destructive"
-          })
+          toast.error('Please fill input weight and output weight')
           return
         }
       } else {
         // Add mode: validate all fields
         if (!formData.machine_no || !formData.batch_id || !formData.yarn_type || !formData.yarn_sub_type || !formData.tpm || !formData.input_weight || !formData.output_weight) {
-          toast({
-            title: "Error",
-            description: "Please fill all output fields",
-            variant: "destructive"
-          })
+          toast.error('Please fill all output fields')
           return
         }
       }
@@ -570,11 +557,7 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange, refreshTri
 
     if (isInputForm) {
       if (isNaN(weightNum) || weightNum <= 0) {
-        toast({
-          title: "Error",
-          description: "Weight must be a positive number",
-          variant: "destructive"
-        })
+        toast.error('Weight must be a positive number')
         return
       }
     } else {
@@ -582,21 +565,13 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange, refreshTri
       if (isEditing) {
         // Edit mode: only validate input and output weights
         if (isNaN(inputWeightNum) || inputWeightNum <= 0 || isNaN(outputWeightNum) || outputWeightNum <= 0) {
-          toast({
-            title: "Error",
-            description: "Input weight and output weight must be positive numbers",
-            variant: "destructive"
-          })
+          toast.error('Input weight and output weight must be positive numbers')
           return
         }
       } else {
         // Add mode: validate all numeric fields
         if (isNaN(tpmNum) || tpmNum <= 0 || isNaN(inputWeightNum) || inputWeightNum <= 0 || isNaN(outputWeightNum) || outputWeightNum <= 0) {
-          toast({
-            title: "Error",
-            description: "TPM, input weight and output weight must be positive numbers",
-            variant: "destructive"
-          })
+          toast.error('TPM, input weight and output weight must be positive numbers')
           return
         }
       }
@@ -654,12 +629,11 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange, refreshTri
       const isSuccess = result.status === true || result.status === 1
 
       if (isSuccess) {
-        toast({
-          title: "Success",
-          description: isEditing
-            ? (isInputForm ? "Input task updated successfully" : "Output task updated successfully")
-            : (isInputForm ? "Input task added successfully" : "Output task added successfully"),
-        })
+        toast.success(
+          isEditing
+            ? (isInputForm ? 'Input task updated successfully' : 'Output task updated successfully')
+            : (isInputForm ? 'Input task added successfully' : 'Output task added successfully')
+        )
 
         // Reset form and close dialog
         setFormData({
@@ -684,21 +658,15 @@ function TPMForm({ type, onSubmitSuccess, editItem, onEditItemChange, refreshTri
           onSubmitSuccess()
         }
       } else {
-        toast({
-          title: "Error",
-          description: result.message || (isEditing
-            ? (isInputForm ? "Failed to update input task" : "Failed to update output task")
-            : (isInputForm ? "Failed to add input task" : "Failed to add output task")),
-          variant: "destructive"
-        })
+        toast.error(
+          result.message || (isEditing
+            ? (isInputForm ? 'Failed to update input task' : 'Failed to update output task')
+            : (isInputForm ? 'Failed to add input task' : 'Failed to add output task'))
+        )
       }
     } catch (error) {
       console.error('Error submitting form:', error)
-      toast({
-        title: "Error",
-        description: "An error occurred while submitting the form",
-        variant: "destructive"
-      })
+      toast.error('An error occurred while submitting the form')
     } finally {
       setSubmitting(false)
     }
@@ -901,7 +869,6 @@ export default function TPMPage() {
   const [editingItem, setEditingItem] = useState<any>(null)
   const [deletingItem, setDeletingItem] = useState<any>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  const { toast } = useToast()
 
   const handleInputFormSubmit = () => {
     setRefreshTrigger(prev => prev + 1)
@@ -935,27 +902,16 @@ export default function TPMPage() {
       const data = await res.json()
 
       if (data.status === true || data.status === 1) {
-        toast({
-          title: "Success",
-          description: `${itemType} task deleted successfully`,
-        })
+        toast.success(`${itemType} task deleted successfully`)
         setDeletingItem(null)
         // Trigger table refresh
         setRefreshTrigger(prev => prev + 1)
       } else {
-        toast({
-          title: "Error",
-          description: data.message || `Failed to delete ${itemType} task`,
-          variant: "destructive"
-        })
+        toast.error(data.message || `Failed to delete ${itemType} task`)
       }
     } catch (error) {
       console.error('Error deleting task:', error)
-      toast({
-        title: "Error",
-        description: "Error deleting task",
-        variant: "destructive"
-      })
+      toast.error('Error deleting task')
     } finally {
       setDeleteLoading(false)
     }
@@ -968,9 +924,19 @@ export default function TPMPage() {
         <p className="mt-2 text-slate-600 dark:text-slate-400">Total Productive Maintenance tracking</p>
       </div>
       <Tabs defaultValue="input" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="input">Input</TabsTrigger>
-          <TabsTrigger value="output">Output</TabsTrigger>
+        <TabsList className="mx-auto flex w-full max-w-lg items-center gap-2 rounded-full bg-gradient-to-r from-sky-50 to-sky-100 p-2 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-900">
+          <TabsTrigger value="input" className="flex-1 flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-slate-700 dark:text-slate-200 transition-colors duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg">
+            <div className="flex items-center justify-center gap-3">
+              <ArrowUp size={18} className="text-current" />
+              <span>Input</span>
+            </div>
+          </TabsTrigger>
+          <TabsTrigger value="output" className="flex-1 flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-slate-700 dark:text-slate-200 transition-colors duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg">
+            <div className="flex items-center justify-center gap-3">
+              <ArrowDown size={18} className="text-current" />
+              <span>Output</span>
+            </div>
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="input" className="space-y-6">
           <Card className="border-slate-200 p-6 dark:border-slate-800">

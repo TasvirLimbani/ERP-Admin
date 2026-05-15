@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Edit2 } from 'lucide-react'
+import { Plus, Trash2, Edit2, ArrowUp, ArrowDown } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -11,7 +12,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
-import { useToast } from '@/hooks/use-toast'
 
 type DyeingStatus = 'Pending' | 'Processing' | 'Completed' | 'Rejected'
 
@@ -429,8 +429,6 @@ function DyeingForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { typ
     }
   }, [open, type, isEditing])
 
-  const { toast } = useToast()
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -439,13 +437,13 @@ function DyeingForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { typ
       if (isEditing) {
         // Edit mode: only require weight
         if (!formData.weight) {
-          toast({ title: 'Error', description: 'Please fill weight', variant: 'destructive' })
+          toast.error('Please fill weight')
           return
         }
       } else {
         // Add mode: all fields required
         if (!formData.batch_id || !formData.yarn_type || !formData.yarn_sub_type || !formData.tpm || !formData.weight) {
-          toast({ title: 'Error', description: 'Please fill all fields', variant: 'destructive' })
+          toast.error('Please fill all fields')
           return
         }
       }
@@ -490,7 +488,7 @@ function DyeingForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { typ
         const result = await res.json()
         const success = result?.status === true || result?.status === 1
         if (success) {
-          toast({ title: 'Success', description: isEditing ? 'Dyeing input updated' : 'Dyeing input added' })
+          toast.success(isEditing ? 'Dyeing input updated' : 'Dyeing input added')
           // reset and close
           setFormData({ batch_id: '', yarn_type: '', yarn_sub_type: '', tpm: '', weight: '', output_weight: '', loss_weight: '', status: '' })
           setOpen(false)
@@ -501,11 +499,11 @@ function DyeingForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { typ
           // notify parent/table to refresh via callback
           if (onSubmitSuccess) onSubmitSuccess()
         } else {
-          toast({ title: 'Error', description: result?.message || (isEditing ? 'Failed to update dyeing input' : 'Failed to add dyeing input'), variant: 'destructive' })
+          toast.error(result?.message || (isEditing ? 'Failed to update dyeing input' : 'Failed to add dyeing input'))
         }
       } catch (err) {
         console.error('Submit error', err)
-        toast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+        toast.error('Network error')
       } finally {
         setSubmitting(false)
       }
@@ -516,7 +514,7 @@ function DyeingForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { typ
     if (isOutput) {
       // Base required fields for output (category and output_weight are conditional)
       if (!formData.machine_id || !formData.batch_id || !formData.yarn_type || !formData.yarn_sub_type || !formData.color || !formData.input_weight || !formData.status) {
-        toast({ title: 'Error', description: 'Please fill all required fields', variant: 'destructive' })
+        toast.error('Please fill all required fields')
         return
       }
 
@@ -524,7 +522,7 @@ function DyeingForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { typ
       const isCompleted = String(formData.status).toLowerCase() === 'completed'
       if (isCompleted) {
         if (!formData.category || !formData.output_weight) {
-          toast({ title: 'Error', description: 'Please provide category and output weight for completed status', variant: 'destructive' })
+          toast.error('Please provide category and output weight for completed status')
           return
         }
       }
@@ -573,7 +571,7 @@ function DyeingForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { typ
         const result = await res.json()
         const success = result?.status === true || result?.status === 1
         if (success) {
-          toast({ title: 'Success', description: isEditing ? 'Dyeing output updated' : 'Dyeing output added' })
+          toast.success(isEditing ? 'Dyeing output updated' : 'Dyeing output added')
           // reset and close
           setFormData({ batch_id: '', yarn_type: '', yarn_sub_type: '', tpm: '', weight: '', machine_id: '', color: '', category: '', input_weight: '', output_weight: '', status: '' })
           setOpen(false)
@@ -584,11 +582,11 @@ function DyeingForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { typ
           // notify parent/table to refresh via callback
           if (onSubmitSuccess) onSubmitSuccess()
         } else {
-          toast({ title: 'Error', description: result?.message || (isEditing ? 'Failed to update dyeing output' : 'Failed to add dyeing output'), variant: 'destructive' })
+          toast.error(result?.message || (isEditing ? 'Failed to update dyeing output' : 'Failed to add dyeing output'))
         }
       } catch (err) {
         console.error('Submit error', err)
-        toast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+        toast.error('Network error')
       } finally {
         setSubmitting(false)
       }
@@ -617,6 +615,21 @@ function DyeingForm({ type, onSubmitSuccess, editItem, onEditItemChange }: { typ
       if (onEditItemChange) {
         onEditItemChange(null)
       }
+      // Reset form fields
+      setFormData({
+        batch_id: '',
+        yarn_type: '',
+        yarn_sub_type: '',
+        tpm: '',
+        weight: '',
+        machine_id: '',
+        color: '',
+        category: '',
+        input_weight: '',
+        output_weight: '',
+        loss_weight: '',
+        status: ''
+      })
     }
   }
 
@@ -844,7 +857,6 @@ export default function DyeingPage() {
   const [editingItem, setEditingItem] = useState<any>(null)
   const [deletingItem, setDeletingItem] = useState<any>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  const { toast } = useToast()
 
   const handleEditItem = (item: any) => {
     setEditingItem(item)
@@ -875,26 +887,15 @@ export default function DyeingPage() {
       const data = await res.json()
 
       if (data.status === true || data.status === 1) {
-        toast({
-          title: 'Success',
-          description: successMessage,
-        })
+        toast.success(successMessage)
         setDeletingItem(null)
         setRefreshTrigger((prev) => prev + 1)
       } else {
-        toast({
-          title: 'Error',
-          description: data.message || errorMessage,
-          variant: 'destructive'
-        })
+        toast.error(data.message || errorMessage)
       }
     } catch (error) {
       console.error('Error deleting input task:', error)
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive'
-      })
+      toast.error(errorMessage)
     } finally {
       setDeleteLoading(false)
     }
@@ -907,9 +908,19 @@ export default function DyeingPage() {
         <p className="mt-2 text-slate-600 dark:text-slate-400">Manage dyeing input and output records</p>
       </div>
       <Tabs defaultValue="input" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="input">Input</TabsTrigger>
-          <TabsTrigger value="output">Output</TabsTrigger>
+        <TabsList className="mx-auto flex w-full max-w-lg items-center gap-2 rounded-full bg-gradient-to-r from-sky-50 to-sky-100 p-2 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-900">
+          <TabsTrigger value="input" className="flex-1 flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-slate-700 dark:text-slate-200 transition-colors duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg">
+            <div className="flex items-center justify-center gap-3">
+              <ArrowUp size={18} className="text-current" />
+              <span>Input</span>
+            </div>
+          </TabsTrigger>
+          <TabsTrigger value="output" className="flex-1 flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-slate-700 dark:text-slate-200 transition-colors duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg">
+            <div className="flex items-center justify-center gap-3">
+              <ArrowDown size={18} className="text-current" />
+              <span>Output</span>
+            </div>
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="input" className="space-y-6">
           <Card className="border-slate-200 p-6 dark:border-slate-800">

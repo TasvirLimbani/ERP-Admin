@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Edit2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -47,7 +48,7 @@ interface FormData {
 function TablePagination({
   data,
   onEdit,
-  pageSize = 5,
+  pageSize = 10,
 }: {
   data: any[]
   onEdit: (item: any) => void
@@ -131,9 +132,11 @@ function TablePagination({
 function ManagerForm({
   editData,
   onClose,
+  onSuccess,
 }: {
   editData: any
   onClose: () => void
+  onSuccess?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [formData, setFormData] = useState<FormData>({
@@ -187,12 +190,14 @@ function ManagerForm({
       const result = await res.json()
 
       if (result.status) {
-        alert(isEdit ? 'Updated ✅' : 'Created ✅')
-        window.location.reload()
+        toast.success(isEdit ? 'Manager updated successfully' : 'Manager added successfully')
         setOpen(false)
         onClose()
+        if (onSuccess) {
+          onSuccess()
+        }
       } else {
-        alert(result.message || 'Failed ❌')
+        toast.error(result.message || 'Failed to save manager')
       }
     } catch (err) {
       console.error(err)
@@ -312,6 +317,7 @@ export default function ManagerPage() {
         <ManagerForm
           editData={editData}
           onClose={() => setEditData(null)}
+          onSuccess={() => companyId && fetchManagers(companyId)}
         />
       </div>
 

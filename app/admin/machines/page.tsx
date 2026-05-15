@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Edit2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -46,7 +47,7 @@ const MACHINE_TYPE_OPTIONS = [
   'Automatic Cone',
 ]
 
-function TablePagination({ data, onEdit, onDelete, pageSize = 5 }: { data: any[], onEdit: (item: any) => void, onDelete: (item: any) => void, pageSize?: number }) {
+function TablePagination({ data, onEdit, onDelete, pageSize = 10 }: { data: any[], onEdit: (item: any) => void, onDelete: (item: any) => void, pageSize?: number }) {
   const [currentPage, setCurrentPage] = useState(1)
   const totalPages = Math.ceil(data.length / pageSize)
   const startIdx = (currentPage - 1) * pageSize
@@ -179,13 +180,13 @@ function MachineForm({ editData, onClose, onRefresh, company_id }: { editData: a
       const result = await res.json()
 
       if (result.status) {
-        alert(isEdit ? 'Machine updated ✅' : 'Machine added ✅')
+        toast.success(isEdit ? 'Machine updated successfully' : 'Machine added successfully')
         setFormData({ machine_number: '', machine_type: '', status: '' })
         setOpen(false)
         onClose()
         onRefresh()
       } else {
-        alert(result.message || 'Failed ❌')
+        toast.error(result.message || 'Failed to save machine')
       }
     } catch (err) {
       console.error(err)
@@ -301,10 +302,6 @@ export default function MachinesPage() {
   }
 
   const handleDelete = async (item: any) => {
-    if (!confirm(`Are you sure you want to delete machine ${item.machine_number}?`)) {
-      return
-    }
-
     try {
       const res = await fetch('/api/machines/delete', {
         method: 'POST',
@@ -315,13 +312,14 @@ export default function MachinesPage() {
       const result = await res.json()
 
       if (result.status) {
-        alert('Machine deleted ✅')
+        toast.success('Machine deleted successfully')
         companyId && fetchMachines(companyId)
       } else {
-        alert(result.message || 'Failed to delete ❌')
+        toast.error(result.message || 'Failed to delete machine')
       }
     } catch (err) {
       console.error('Error deleting machine:', err)
+      toast.error('Error deleting machine')
     }
   }
 
